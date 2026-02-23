@@ -1,0 +1,214 @@
+# -----------------------------------------
+# POST API ROUTES
+# -----------------------------------------
+
+/api/v1/post/create:
+  post:
+    tags: [Post]
+    summary: Create a new post
+    description: Create a new social post with optional images and mentions
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              community:
+                type: string
+                description: Community ID if posting to a community
+              mentions:
+                type: array
+                items:
+                  type: string
+                  example: "60f7c1ab2f9b8c001e8e9b7d"
+                nullable: true
+              image:
+                type: array
+                items:
+                  type: string
+                  format: binary
+    responses:
+      200:
+        description: Post created successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/post/share/{id}:
+  post:
+    tags: [Post]
+    summary: Share/repost a post
+    description: Create a repost (share) of an existing post
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Original post ID to share
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              content:
+                type: string
+                description: Additional comment on the shared post
+    responses:
+      200:
+        description: Post shared successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        $ref: "#/components/responses/NotFoundError"
+
+
+/api/v1/post/{id}:
+  delete:
+    tags: [Post]
+    summary: Delete a post
+    description: Delete a post (author or admin only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Post deleted successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        $ref: "#/components/responses/NotFoundError"
+
+  patch:
+    tags: [Post]
+    summary: Update a post
+    description: Update an existing post (author only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              mentions:
+                type: array
+                items:
+                  type: string
+              image:
+                type: array
+                items:
+                  type: string
+                  format: binary
+    responses:
+      200:
+        description: Post updated successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        $ref: "#/components/responses/NotFoundError"
+
+  get:
+    tags: [Post]
+    summary: Get post by ID
+    description: Retrieve a single post with all details including user, likes, and comments
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Post retrieved successfully
+      404:
+        $ref: "#/components/responses/NotFoundError"
+
+
+/api/v1/post/all:
+  get:
+    tags: [Post]
+    summary: Get all posts
+    description: Retrieve all public posts with pagination
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 10
+    responses:
+      200:
+        description: Posts retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Post"
+
+
+/api/v1/post/org/all:
+  get:
+    tags: [Post]
+    summary: Get all posts by organization
+    description: Retrieve all posts for the authenticated user's organization
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 10
+    responses:
+      200:
+        description: Organization posts retrieved successfully
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiResponse"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"

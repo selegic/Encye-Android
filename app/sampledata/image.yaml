@@ -1,0 +1,236 @@
+# ---------------------------------------------------------
+# IMAGE FILE API
+# ---------------------------------------------------------
+
+/api/v1/image/upload:
+  post:
+    tags: [Image]
+    summary: Upload a single image file
+    description: >
+      Uploads an image file to local storage (dev) or S3 (production).  
+      Accepts JPG, PNG, WEBP, etc.  
+      Automatically converts to WEBP in production.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              image:
+                type: string
+                format: binary
+                description: Image file to upload
+              category:
+                type: string
+                enum: [article, post, community, profile, training]
+                description: Image category
+    responses:
+      200:
+        description: Image uploaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/ImageFile"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      400:
+        description: Invalid category or file already exists
+
+
+/api/v1/image/all/{category}:
+  get:
+    tags: [Image]
+    summary: Get all images in a category
+    description: >
+      Fetches all image files of the given category.  
+      Admin & Content Moderator → can see all.  
+      Normal user → sees only their own uploaded images.
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: category
+        required: true
+        schema:
+          type: string
+          enum: [article, post, community, profile, training]
+        description: Image category
+    responses:
+      200:
+        description: All image files listed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ImageFile"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: No images found
+
+
+/api/v1/image/{id}:
+  get:
+    tags: [Image]
+    summary: Get image details by ID
+    description: >
+      Fetches metadata for a specific image. Only accessible if:  
+      - Same organization, AND  
+      - Admin / Content Moderator OR image uploaded by user
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Image file ID
+    responses:
+      200:
+        description: Image details found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/ImageFile"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Image not found
+
+  put:
+    tags: [Image]
+    summary: Update image metadata
+    description: >
+      Update image metadata (name, order, id).  
+      Order must be unique.
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Image ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              order:
+                type: integer
+              name:
+                type: string
+              id:
+                type: string
+    responses:
+      200:
+        description: Image updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/ImageFile"
+      400:
+        description: Duplicate order or invalid values
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+  delete:
+    tags: [Image]
+    summary: Delete an image by ID
+    description: >
+      Deletes an image from local storage (dev) or S3 (production).  
+      Only accessible if:
+      - User is admin, content moderator, OR
+      - The image belongs to the user
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        description: Image ID
+        schema:
+          type: string
+    responses:
+      200:
+        description: Image deleted successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Image not found
+
+# ---------------------------------------------------------
+# SCHEMAS
+# ---------------------------------------------------------
+
+components:
+  schemas:
+    ImageFile:
+      type: object
+      properties:
+        _id:
+          type: string
+        order:
+          type: integer
+        id:
+          type: string
+        idWithExt:
+          type: string
+        name:
+          type: string
+        filePath:
+          type: string
+        url:
+          type: string
+        type:
+          type: string
+        category:
+          type: string
+          enum: [article, post, community, profile, training]
+        organization:
+          type: string
+        createdBy:
+          type: string
+        updatedBy:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string

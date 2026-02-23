@@ -1,0 +1,196 @@
+# -----------------------------------------
+# TRAINING API ROUTES
+# -----------------------------------------
+
+/api/v1/training/create:
+  post:
+    tags: [Training]
+    summary: Create a new training
+    description: Create a training with modules, cover image, and related trainings
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - title          
+            properties:
+              title:
+                type: string
+                example: React Basics Training
+              coverImage:
+                type: string
+                format: binary
+                description: ImageFile ObjectId
+              summary:
+                type: string
+                example: Introduction to React.js fundamentals....
+              module:
+                type: array
+                items:
+                  type: string
+                description: Module objects (array)
+              organization:
+                type: string
+                example: "65aa1a9b8f..."
+                description: Organization ID
+              similar:
+                type: string
+                example: "65aa1b4c91..., 65aa1cde12..."
+                description: Comma-separated list of training IDs
+    responses:
+      200:
+        description: Training created successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+
+/api/v1/training/all:
+  get:
+    tags: [Training]
+    summary: Get all trainings (default organization)
+    description: Retrieve training list from default organization with pagination
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 8
+    responses:
+      200:
+        description: All trainings retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Training"
+                totalTraining:
+                  type: integer
+
+
+
+/api/v1/training/org/all:
+  get:
+    tags: [Training]
+    summary: Get all trainings by organization
+    description: Training list for authenticated user’s organization
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 8
+    responses:
+      200:
+        description: Trainings retrieved successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+
+/api/v1/training/{id}:
+  get:
+    tags: [Training]
+    summary: Get training by ID
+    description: Retrieve a single training with full module hierarchy
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Training ID
+    responses:
+      200:
+        description: Training data retrieved successfully
+      404:
+        description: Training not found
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+  put:
+    tags: [Training]
+    summary: Update a training
+    description: Update training title, summary, cover image, modules, or related trainings
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: false
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              summary:
+                type: string
+              coverImage:
+                type: string
+                format: binary
+                description: ImageFile ObjectId
+              module:
+                type: string
+                example: "moduleId1, moduleId2"
+              similar:
+                type: string
+                example: "trainingId1, trainingId2"
+    responses:
+      200:
+        description: Training updated successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Training not found
+
+  delete:
+    tags: [Training]
+    summary: Delete a training
+    description: Delete a training and all related module content (documents, videos, images, quiz)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Training deleted successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Training not found

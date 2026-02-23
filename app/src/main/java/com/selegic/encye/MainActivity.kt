@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -13,12 +14,18 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,18 +43,25 @@ import com.selegic.encye.home.Home
 import com.selegic.encye.navigation.Navigator
 import com.selegic.encye.navigation.rememberNavigationState
 import com.selegic.encye.navigation.toEntries
+import com.selegic.encye.onboarding.OnboardingScreen
 import com.selegic.encye.ui.theme.EncyeTheme
+import com.selegic.encye.util.SessionManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var sessionManager: SessionManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             EncyeTheme {
-                EncyeApp()
+                EncyeApp(sessionManager)
             }
         }
     }
@@ -55,72 +69,103 @@ class MainActivity : ComponentActivity() {
 
 @PreviewScreenSizes
 @Composable
-fun EncyeApp() {
-    val navigationState = rememberNavigationState(
-        startRoute = AppDestinations.Home,
-        topLevelRoutes = AppDestinations.entries().toSet()
-    )
-    val navigator = remember { Navigator(navigationState) }
+fun EncyeApp(sessionManager: SessionManager? = null) {
+    var isLoggedIn by remember { mutableStateOf<Boolean?>(null) }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries().forEach { destination ->
-                item(
-                    icon = {
-                        Icon(
-                            destination.icon,
-                            contentDescription = destination.label
-                        )
-                    },
-                    label = { Text(destination.label, fontSize = 10.sp) },
-                    selected = destination == navigationState.topLevelRoute,
-                    onClick = {
-                        navigator.navigate(destination)
-                    }
-                )
+    LaunchedEffect(sessionManager) {
+        if (sessionManager != null) {
+            val token = sessionManager.getAuthToken()
+            isLoggedIn = token != null
+        } else {
+            // For preview purposes, pretend we're logged in
+            isLoggedIn = true
+        }
+    }
+
+    when (isLoggedIn) {
+        null -> {
+            // Show a loading state while we check the DataStore
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
         }
-    ) {
-        SharedTransitionLayout {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            val entryProvider: (NavKey) -> NavEntry<NavKey> = entryProvider {
-                entry<AppDestinations.Home> {
-                    Home()
+        false -> {
+            // User is not logged in, show Onboarding (without the bottom nav)
+            OnboardingScreen(
+                onNavigateToHome = {
+                    isLoggedIn = true
                 }
-                entry<AppDestinations.Video> {
-                    Greeting(name = "Video")
-                }
-                entry<AppDestinations.Training> {
-                    Greeting(name = "Training")
-                }
-                entry<AppDestinations.Article> {
-                    ArticleScreen(
-                        onNavigateToArticleDetail = { it: ArticleDto ->
-                            navigator.navigate(AppDestinations.ArticleDetail(it.id,it))
-                        },
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        animatedContentScope = LocalNavAnimatedContentScope.current,
-                    )
-                }
-                entry<AppDestinations.Community> {
-                    Greeting(name = "Community")
-                }
-                entry<AppDestinations.ArticleDetail> {
-                    ArticleDetailScreen(
-                        articleId = it.id,
-                        articleDto = it.dto,
-                        sharedTransitionScope = this@SharedTransitionLayout,
-                        animatedContentScope = LocalNavAnimatedContentScope.current
-                    )
-                }
-            }
-
-            NavDisplay(
-                modifier = Modifier.padding(innerPadding),
-                entries = navigationState.toEntries(entryProvider),
-                onBack = { navigator.goBack() }
             )
         }
+        true -> {
+            // Main Application Flow
+            val navigationState = rememberNavigationState(
+                startRoute = AppDestinations.Home,
+                topLevelRoutes = AppDestinations.entries().toSet()
+            )
+            val navigator = remember { Navigator(navigationState) }
+
+            NavigationSuiteScaffold(
+                navigationSuiteItems = {
+                    AppDestinations.entries().forEach { destination ->
+                        item(
+                            icon = {
+                                Icon(
+                                    destination.icon,
+                                    contentDescription = destination.label
+                                )
+                            },
+                            label = { Text(destination.label, fontSize = 10.sp) },
+                            selected = destination == navigationState.topLevelRoute,
+                            onClick = {
+                                navigator.navigate(destination)
+                            }
+                        )
+                    }
+                }
+            ) {
+                SharedTransitionLayout {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        val entryProvider: (NavKey) -> NavEntry<NavKey> = entryProvider {
+                            entry<AppDestinations.Home> {
+                                Home()
+                            }
+                            entry<AppDestinations.Video> {
+                                Greeting(name = "Video")
+                            }
+                            entry<AppDestinations.Training> {
+                                Greeting(name = "Training")
+                            }
+                            entry<AppDestinations.Article> {
+                                ArticleScreen(
+                                    onNavigateToArticleDetail = { it: ArticleDto ->
+                                        navigator.navigate(AppDestinations.ArticleDetail(it.id, it))
+                                    },
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedContentScope = LocalNavAnimatedContentScope.current,
+                                )
+                            }
+                            entry<AppDestinations.Community> {
+                                Greeting(name = "Community")
+                            }
+                            entry<AppDestinations.ArticleDetail> {
+                                ArticleDetailScreen(
+                                    articleId = it.id,
+                                    articleDto = it.dto,
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedContentScope = LocalNavAnimatedContentScope.current
+                                )
+                            }
+                        }
+
+                        NavDisplay(
+                            modifier = Modifier.padding(innerPadding),
+                            entries = navigationState.toEntries(entryProvider),
+                            onBack = { navigator.goBack() }
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -157,7 +202,7 @@ val AppDestinations.icon: ImageVector
         AppDestinations.Training -> Icons.Default.School
         AppDestinations.Article -> Icons.AutoMirrored.Filled.Article
         AppDestinations.Community -> Icons.Default.People
-        else -> {error("Unknown top level route")}
+        else -> { error("Unknown top level route") }
     }
 
 @Composable

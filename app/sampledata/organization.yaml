@@ -1,0 +1,192 @@
+# ---------------------------------------------------------
+# ORGANIZATION API
+# ---------------------------------------------------------
+
+/api/v1/organization/register:
+  post:
+    tags: [Organization]
+    summary: Register a new organization
+    description: >
+      Creates a new organization and assigns the authenticated user as **admin**,  
+      updates user.organization, and creates FileHierarchy.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+                example: "Encye Learning Pvt Ltd"
+              description:
+                type: string
+                example: "A knowledge-sharing platform"
+              logo:
+                type: string
+                format: binary
+                description: ImageFile ID for the organization logo
+    responses:
+      200:
+        description: Organization successfully created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/Organization"
+      400:
+        description: Missing fields or validation error
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/organization/all:
+  get:
+    tags: [Organization]
+    summary: Get all organizations
+    description: Returns list of all organizations.
+    responses:
+      200:
+        description: List of organizations
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Organization"
+
+
+/api/v1/organization/{id}:
+  get:
+    tags: [Organization]
+    summary: Get organization by ID
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Organization details found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/Organization"
+      404:
+        description: Organization not found
+
+  put:
+    tags: [Organization]
+    summary: Update organization by ID
+    description: >
+      Updates only the provided fields (description, logo).  
+      Requires the provided logo ID to exist in ImageFile collection.
+    # security:
+    #   - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              description:
+                type: string
+                example: "Updated organization description"
+              logo:
+                type: string
+                description: ImageFile ID
+    responses:
+      200:
+        description: Organization updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/Organization"
+      400:
+        description: Invalid input or logo not found
+      404:
+        description: Organization not found
+
+  delete:
+    tags: [Organization]
+    summary: Delete organization by ID
+    # security:
+    #   - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Organization deleted successfully
+      404:
+        description: Organization not found
+
+
+# ---------------------------------------------------------
+# SCHEMAS
+# ---------------------------------------------------------
+
+components:
+  schemas:
+    Organization:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        id:
+          type: string
+          description: Unique slug (lowercase) generated from name
+        description:
+          type: string
+        logo:
+          type: string
+          description: ImageFile reference ID
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string

@@ -1,0 +1,324 @@
+# -----------------------------------------
+# COMMUNITY API ROUTES
+# -----------------------------------------
+
+/api/v1/community/create:
+  post:
+    tags: [Community]
+    summary: Create a new community
+    description: Create a community within an organization
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - name
+              - id
+              - organization
+            properties:
+              name:
+                type: string
+                description: Community name
+                example: Web Developers
+              id:
+                type: string
+                description: Unique community identifier
+                example: web-dev-community
+              about:
+                type: string
+                description: Community description
+                example: A community for developers
+              organization:
+                type: string
+                description: Organization ID
+              profileImage:
+                type: string
+                format: binary
+                description: Profile Image for the community
+              coverImage:
+                type: string
+                format: binary
+                description: Cover Image for the community
+    responses:
+      201:
+        description: Community created successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/community/all:
+  get:
+    tags: [Community]
+    summary: Get all communities
+    description: Fetch all communities across all organizations
+    responses:
+      200:
+        description: List of all communities
+
+
+/api/v1/community/org/all:
+  get:
+    tags: [Community]
+    summary: Get all communities within a user's organization
+    description: Requires valid JWT token
+    security:
+      - bearerAuth: []
+    responses:
+      200:
+        description: Communities fetched successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/community/post/request/{communityId}/{status}/{postId}:
+  patch:
+    tags: [Community]
+    summary: Approve or reject a post inside a community
+    description: Status can be approved/rejected/pending
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: communityId
+        required: true
+        schema:
+          type: string
+        description: Community ID
+      - in: path
+        name: status
+        required: true
+        schema:
+          type: string
+          enum: [approved, rejected, pending]
+        description: Approval status
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: string
+        description: Post ID
+    responses:
+      200:
+        description: Post status updated successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/community/{id}:
+  get:
+    tags: [Community]
+    summary: Get community details by ID
+    description: Fetch full community details
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Community ID
+    responses:
+      200:
+        description: Community details fetched successfully
+      404:
+        description: Community not found
+
+  patch:
+    tags: [Community]
+    summary: Update a community
+    description: Update community details
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Community ID
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Community name
+                example: Web Developers
+              id:
+                type: string
+                description: Unique community identifier
+                example: web-dev-community
+              about:
+                type: string
+                description: Community description
+                example: A community for developers
+              organization:
+                type: string
+                description: Organization ID
+              profileImage:
+                type: string
+                format: binary
+                description: Profile Image for the community
+              coverImage:
+                type: string
+                format: binary
+                description: Cover Image for the community
+    responses:
+      200:
+        description: Community updated successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+  delete:
+    tags: [Community]
+    summary: Delete a community
+    description: Delete community by ID (Admin/Moderator only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Community ID
+    responses:
+      200:
+        description: Community deleted successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/community/moderator:
+  put:
+    tags: [Community]
+    summary: Add or remove moderators of a community
+    description: >
+      Allows the community admin to add or remove moderators.
+      Moderators must be members of the community.
+      The admin cannot be added as a moderator.
+      Provide moderator IDs as a comma-separated string.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - communityId
+              - moderators
+              - action
+            properties:
+              communityId:
+                type: string
+                description: Community MongoDB ObjectId
+                example: "69311a272ac67fdb178002f4"
+              moderators:
+                type: string
+                description: >
+                  Comma-separated list of moderator user IDs.
+                  Example: "id1, id2, id3"
+                example: "690840601c41f63f4e0b1441, 68faa4cdad820dfa1b91ff12"
+              action:
+                type: string
+                enum: [add, remove]
+                description: Whether to add or remove moderators
+                example: "add"
+    responses:
+      200:
+        description: Moderators updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Moderator(s) added successfully"
+                data:
+                  type: object
+                  description: Updated community object
+      400:
+        description: Invalid request or validation failure
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: false
+                msg:
+                  type: string
+                error:
+                  type: string
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+
+
+/api/v1/community/member:
+  put:
+    tags: [Community]
+    summary: Join or leave a community
+    description: >
+      Allows a user to join or leave a community.  
+      Use `"join": true` to join, or `"leave": true` to leave.  
+      Only one of them should be provided at a time.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - communityId
+            properties:
+              communityId:
+                type: string
+                description: MongoDB ObjectId of the community
+                example: "691c10cfe4265047c539dd93"
+              join:
+                type: boolean
+                description: Set to true to join the community
+                example: true
+              leave:
+                type: boolean
+                description: Set to true to leave the community
+                example: false
+    responses:
+      200:
+        description: Membership updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Requested Community"
+                data:
+                  type: object
+                  description: Updated community object
+      400:
+        description: Invalid request
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+

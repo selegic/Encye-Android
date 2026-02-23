@@ -15,5 +15,7 @@ data class PostDto(
     val commentCount: Int = 0,
     val createdBy: UserDto,
     val createdAt: String,
+    val autoCategory: AutoCategoryDto? = null,
+    val autoTags: List<String> = emptyList(), // Added for the text-first design
     val updatedAt: String
 )

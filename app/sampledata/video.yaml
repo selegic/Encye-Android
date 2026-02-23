@@ -1,0 +1,211 @@
+# ---------------------------------------------------------
+# VIDEO FILE API
+# ---------------------------------------------------------
+
+/api/v1/video/upload:
+  post:
+    tags: [Video]
+    summary: Upload video file in chunks
+    description: >
+      Handles chunk-based upload for large video files.  
+      In development it stores locally. In production it uses AWS S3 multipart upload.  
+      Only final chunk creates DB entry.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - file
+              - originalname
+              - category
+              - chunkNumber
+              - totalChunks
+            properties:
+              file:
+                type: string
+                format: binary
+                description: Current chunk buffer
+              originalname:
+                type: string
+                example: intro_video.mp4
+              category:
+                type: string
+                enum: [short_video, training]
+              title:
+                type: string
+                example: "Introduction to Cloud Computing"
+              description:
+                type: string
+                example: "A short training video"
+              chunkNumber:
+                type: number
+                description: The index of this chunk (starts from 0)
+              totalChunks:
+                type: number
+                description: Total chunks including final marker chunk
+    responses:
+      200:
+        description: Chunk uploaded successfully. Final chunk returns video metadata.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  oneOf:
+                    - type: "null"
+                      description: Returned for intermediate chunks
+                    - $ref: "#/components/schemas/VideoFile"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/video/all:
+  get:
+    tags: [Video]
+    summary: Get paginated list of all videos
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 8
+        description: Number of videos per page
+    responses:
+      200:
+        description: List of videos with pagination
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                totalVideos:
+                  type: integer
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/VideoFile"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/video/{id}:
+  get:
+    tags: [Video]
+    summary: Get video metadata by ID
+    description: >
+      Returns video metadata.  
+      *Authentication currently disabled as per your code.*
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Video metadata retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/VideoFile"
+      404:
+        description: Video not found
+      400:
+        description: Invalid video ID
+
+  delete:
+    tags: [Video]
+    summary: Delete a video file by ID
+    description: >
+      Deletes video from local disk or from S3 bucket depending on environment.  
+      Only Admin/Content Moderator or uploader can delete.
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Video deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                msg:
+                  type: string
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Video not found
+
+
+# ---------------------------------------------------------
+# SCHEMAS
+# ---------------------------------------------------------
+
+components:
+  schemas:
+    VideoFile:
+      type: object
+      properties:
+        _id:
+          type: string
+        order:
+          type: integer
+        name:
+          type: string
+        id:
+          type: string
+        idWithExt:
+          type: string
+        filePath:
+          type: string
+        url:
+          type: string
+        category:
+          type: string
+          enum: [short_video, training]
+        duration:
+          type: number
+        organization:
+          type: string
+        uploadedBy:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string

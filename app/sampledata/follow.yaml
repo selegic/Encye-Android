@@ -1,0 +1,299 @@
+paths:
+  /api/v1/network/follow:
+    post:
+      tags:
+        - Follow
+      summary: Follow a user
+      description: |
+        Allows the authenticated user to follow another user **within the same organization**.
+
+        **Rules:**
+        - User cannot follow themselves.
+        - User cannot follow someone outside their organization.
+        - Duplicate follow (already following) is not allowed.
+        - Automatically increments `followingCount` for follower and `followersCount` for followee.
+
+      security:
+        - bearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  description: "MongoDB ObjectId of the user to follow"
+                  example: "67a13da3b81e4e4e59bc2a7a"
+
+      responses:
+        "200":
+          description: Successfully followed user
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  success: true
+                  message: Successfully followed user
+
+        "400":
+          description: Client Error (invalid ID, same org check, already following)
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  success: false
+                  message: "You are already following this user"
+
+  /api/v1/network/unfollow/{id}:
+    delete:
+      tags:
+        - Follow
+      summary: Unfollow a user
+      description: |
+        Allows the authenticated user to **unfollow** a user they previously followed.
+
+        **Rules:**
+        - Cannot unfollow yourself.
+        - User must exist.
+        - Must belong to the same organization.
+        - Following relationship must exist.
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the user to unfollow
+          schema:
+            type: string
+            example: "67a13da3b81e4e4e59bc2a7a"
+
+      responses:
+        "200":
+          description: Successfully unfollowed user
+          content:
+            application/json:
+              schema:
+                example:
+                  success: true
+                  message: Successfully unfollowed user
+
+        "400":
+          description: Invalid request or unfollow not possible
+          content:
+            application/json:
+              schema:
+                example:
+                  success: false
+                  message: Error Occurred
+                  error: "You are not following this user"
+
+  /api/v1/network/remove-follower/{id}:
+    delete:
+      tags:
+        - Follow
+      summary: Remove a follower
+      description: |
+        Allows the authenticated user to **remove someone who is following them**.
+
+        **Rules:**
+        - Both users must be from the same organization.
+        - The target user must already be following the requester.
+        - This action decrements follower/following counters.
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "ID of the follower you want to remove"
+          schema:
+            type: string
+            example: "67a13da3b81e4e4e59bc2a7a"
+
+      responses:
+        "200":
+          description: Successfully removed follower
+          content:
+            application/json:
+              schema:
+                example:
+                  success: true
+                  message: "Follower removed successfully"
+
+        "400":
+          description: Error when follower doesn't exist or organization mismatch
+          content:
+            application/json:
+              schema:
+                example:
+                  success: false
+                  message: "Error Occurred"
+                  error: "This user is not following you"
+
+  /api/v1/network/followers/{id}:
+    get:
+      tags:
+        - Follow
+      summary: Get followers of a user
+      description: |
+        Retrieves a paginated list of all users who follow the specified user.
+
+        **Notes:**
+        - If `{id}` is omitted, the API returns followers of the authenticated user.
+        - Supports pagination using `?page=` and `?limit=`.
+        - Returns user profile details including:
+          - firstName
+          - lastName
+          - profilePicture
+          - followersCount
+          - followingCount
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "User ID whose followers should be fetched"
+          schema:
+            type: string
+            example: "67a13da3b81e4e4e59bc2a7a"
+
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+          description: Pagination page number
+
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 50
+          description: Number of items per page
+
+      responses:
+        "200":
+          description: List of followers retrieved
+          content:
+            application/json:
+              schema:
+                example:
+                  success: true
+                  message: User followers retrieved successfully
+                  data:
+                    followers:
+                      - id: "65a028ad0c4ba382b2143e91"
+                        firstName: "John"
+                        lastName: "Doe"
+                        profilePicture: "/uploads/img.png"
+                        followersCount: 10
+                        followingCount: 5
+                    pagination:
+                      total: 23
+                      page: 1
+                      limit: 50
+                      pages: 1
+
+        "401":
+          description: Unauthorized or invalid request
+          content:
+            application/json:
+              schema:
+                example:
+                  success: false
+                  message: "Error Occurred"
+                  error: "Invalid user ID"
+
+  /api/v1/network/following/{id}:
+    get:
+      tags:
+        - Follow
+      summary: Get users that a user is following
+      description: |
+        Retrieves a paginated list of all users the specified user **is following**.
+
+        **Notes:**
+        - If `{id}` is omitted, returns the following list of the authenticated user.
+        - Supports pagination using `page` and `limit`.
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "User ID whose following list should be retrieved"
+          schema:
+            type: string
+            example: "67a13da3b81e4e4e59bc2a7a"
+
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 50
+
+      responses:
+        "200":
+          description: Following list retrieved
+          content:
+            application/json:
+              schema:
+                example:
+                  success: true
+                  message: User following list retrieved successfully
+                  data:
+                    following:
+                      - id: "65a028ad0c4ba382b2143e91"
+                        firstName: "Jane"
+                        lastName: "Smith"
+                        profilePicture: "/uploads/img2.png"
+                        followersCount: 30
+                        followingCount: 17
+                    pagination:
+                      total: 8
+                      page: 1
+                      limit: 50
+                      pages: 1
+
+        "401":
+          description: Unauthorized or invalid request
+          content:
+            application/json:
+              schema:
+                example:
+                  success: false
+                  message: "Error Occurred"
+                  error: "Invalid user ID"
+
+# ===============================
+# COMPONENT DEFINITIONS
+# ===============================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

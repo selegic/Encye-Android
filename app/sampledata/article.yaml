@@ -1,0 +1,311 @@
+# -----------------------------------------
+# ARTICLE API ROUTES
+# -----------------------------------------
+
+/api/v1/article/migrate:
+  get:
+    tags: [Article]
+    summary: Migrate articles (Admin only)
+    description: Migration endpoint for article data
+    security:
+      - bearerAuth: []
+    responses:
+      200:
+        description: Migration completed successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/article/create:
+  post:
+    tags: [Article]
+    summary: Create a new article
+    description: Create a new article with content, category, and section
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - title
+              - description
+            properties:
+              title:
+                type: string
+                description: Article title
+                example: Introduction to TypeScript
+              subtitle:
+                type: string
+                description: Article subtitle
+                example: A comprehensive guide for beginners
+              description:
+                type: string
+                description: Article content in HTML/Markdown
+              category:
+                type: string
+                description: Category ID
+              section:
+                type: string
+                description: Section ID
+              tags:
+                type: array
+                items:
+                  type: string
+                description: Article tags
+              isPublished:
+                type: boolean
+                description: Publication status
+                default: false
+              image:
+                type: string
+                format: binary
+                description: Cover image file
+    responses:
+      200:
+        description: Article created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/Article"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/article/search:
+  get:
+    tags: [Article]
+    summary: Search articles
+    description: Search articles by keyword, category, or section
+    parameters:
+      - in: query
+        name: query
+        schema:
+          type: string
+        description: Search keyword
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Category ID filter
+      - in: query
+        name: section
+        schema:
+          type: string
+        description: Section ID filter
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+        description: Page number for pagination
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 10
+        description: Number of results per page
+    responses:
+      200:
+        description: Search results retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Article"
+                totalCount:
+                  type: integer
+                currentPage:
+                  type: integer
+                hasMore:
+                  type: boolean
+
+
+/api/v1/article/all:
+  get:
+    tags: [Article]
+    summary: Get all articles
+    description: Retrieve all published articles with pagination
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 10
+    responses:
+      200:
+        description: Articles retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Article"
+
+
+/api/v1/article/org/all:
+  get:
+    tags: [Article]
+    summary: Get all articles by organization
+    description: Retrieve all articles for the authenticated user's organization
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 10
+    responses:
+      200:
+        description: Organization articles retrieved successfully
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiResponse"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+/api/v1/article/{id}:
+  get:
+    tags: [Article]
+    summary: Get article by ID
+    description: Retrieve a single article with all details including author, likes, and comments
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Article ID
+    responses:
+      200:
+        description: Article retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/Article"
+      404:
+        $ref: "#/components/responses/NotFoundError"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+  put:
+    tags: [Article]
+    summary: Update article
+    description: Update an existing article (author or admin only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Article ID
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              subtitle:
+                type: string
+              content:
+                type: string
+              category:
+                type: string
+              section:
+                type: string
+              tags:
+                type: array
+                items:
+                  type: string
+              isPublished:
+                type: boolean
+              image:
+                type: string
+                format: binary
+    responses:
+      200:
+        description: Article updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiResponse"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        $ref: "#/components/responses/NotFoundError"
+
+  delete:
+    tags: [Article]
+    summary: Delete article
+    description: Delete an article (author or admin only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        description: Article ID to delete
+    responses:
+      200:
+        description: Article deleted successfully
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiResponse"
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        $ref: "#/components/responses/NotFoundError"

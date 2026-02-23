@@ -1,0 +1,125 @@
+# ---------------------------------------------------------
+# LIKE API ROUTES
+# ---------------------------------------------------------
+
+/api/v1/like/{onModel}/{itemId}:
+  post:
+    tags: [Like]
+    summary: Toggle Like / Dislike
+    description: >
+      Likes or unlikes an item (Article, Post, Video, Comment).  
+      - If no like exists → it creates a like  
+      - If like already exists → it unlikes it
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: onModel
+        required: true
+        description: Model type to like
+        schema:
+          type: string
+          enum: [Article, Post, Video, Comment]
+      - in: path
+        name: itemId
+        required: true
+        description: ID of the item to like or dislike
+        schema:
+          type: string
+    responses:
+      200:
+        description: Like toggled successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                liked:
+                  type: boolean
+                  description: "true = liked, false = unliked"
+                message:
+                  type: string
+      400:
+        description: Invalid model or item ID
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+# ---------------------------------------------------------
+# CREATE LIKE (Legacy API - used for Article category weight updates)
+# ---------------------------------------------------------
+
+/api/v1/like/create:
+  post:
+    tags: [Like]
+    summary: Create a like for an item  (Deprecated)
+    description: >
+      Creates a like entry for Article, Post, Video or Comment.  
+      If already exists → does nothing.  
+      Also updates category weightage for articles.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - itemId
+              - itemType
+            properties:
+              itemId:
+                type: string
+                description: ID of the item to like
+              itemType:
+                type: string
+                enum: [Article, Post, Video, Comment]
+                description: Model type
+    responses:
+      200:
+        description: Like created or already existed
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      400:
+        description: Missing itemId or itemType
+
+
+# ---------------------------------------------------------
+# REMOVE LIKE (Legacy API)
+# ---------------------------------------------------------
+
+/api/v1/like/dislike:
+  post:
+    tags: [Like]
+    summary: Remove a like from an item  (Deprecated)
+    description: >
+      Removes an existing like from an Article, Post, Video or Comment.  
+      Also decreases category weightage for articles.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - itemId
+              - itemType
+            properties:
+              itemId:
+                type: string
+              itemType:
+                type: string
+                enum: [Article, Post, Video, Comment]
+                description: Model type
+    responses:
+      200:
+        description: Like removed successfully
+      400:
+        description: Like does not exist for this user
+      401:
+        $ref: "#/components/responses/UnauthorizedError"

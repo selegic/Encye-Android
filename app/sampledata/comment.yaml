@@ -1,0 +1,209 @@
+# -----------------------------------------
+# COMMENT API ROUTES
+# -----------------------------------------
+
+/api/v1/comment/create/{onModel}/{commentedOnId}:
+  post:
+    tags: [Comment]
+    summary: Create a top-level comment
+    description: Add a comment on Article, Post, or Video
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: onModel
+        required: true
+        schema:
+          type: string
+          enum: [Article, Post, Video]
+        description: Target model name
+      - in: path
+        name: commentedOnId
+        required: true
+        schema:
+          type: string
+        description: ID of the Article/Post/Video being commented on
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - text
+            properties:
+              text:
+                type: string
+                example: "This is amazing!"
+    responses:
+      200:
+        description: Comment created successfully
+      400:
+        description: Invalid comment request
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+
+
+
+/api/v1/comment/reply/{commentId}:
+  post:
+    tags: [Comment]
+    summary: Create a reply to an existing comment
+    description: Adds a reply under a parent comment
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: commentId
+        required: true
+        schema:
+          type: string
+        description: Parent comment ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - text
+            properties:
+              text:
+                type: string
+                example: "Thanks for the info!"
+    responses:
+      200:
+        description: Reply created successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Parent comment not found
+
+
+
+/api/v1/comment/all/replies/{commentId}:
+  get:
+    tags: [Comment]
+    summary: Get replies for a specific comment
+    description: Load paginated replies (default 5 at a time)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: commentId
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          default: 5
+    responses:
+      200:
+        description: Replies retrieved successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Comment not found
+
+
+
+/api/v1/comment/all/{onModel}/{itemId}:
+  get:
+    tags: [Comment]
+    summary: Get all top-level comments for an item
+    description: Returns paginated comments with each having 3 initial replies
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: onModel
+        required: true
+        schema:
+          type: string
+          enum: [Article, Post, Video]
+      - in: path
+        name: itemId
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: page
+        schema:
+          type: integer
+          default: 1
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 10
+    responses:
+      200:
+        description: Comments retrieved successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Item not found
+
+
+
+/api/v1/comment/{commentId}:
+  delete:
+    tags: [Comment]
+    summary: Delete a comment
+    description: Deletes a comment and its replies (if top-level)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: commentId
+        required: true
+        schema:
+          type: string
+    responses:
+      200:
+        description: Comment deleted successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Comment not found
+
+  patch:
+    tags: [Comment]
+    summary: Update a comment
+    description: User can edit only their own comments
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: commentId
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - text
+            properties:
+              text:
+                type: string
+                example: "Updated comment text"
+    responses:
+      200:
+        description: Comment updated successfully
+      401:
+        $ref: "#/components/responses/UnauthorizedError"
+      404:
+        description: Comment not found

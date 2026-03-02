@@ -5,6 +5,7 @@ import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,42 +54,44 @@ fun ArticleDetailScreen(
         viewModel.setArticle(articleDto)
     }
 
-    LazyColumn(modifier = Modifier) {
-        item {
-            article.value?.let {
-                with(sharedTransitionScope) {
-                    AsyncImage(
-                        model = it.image?.url,
-                        contentDescription = it.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1.6f)
-                            .sharedElement(
-                                sharedTransitionScope.rememberSharedContentState(key = "image-${it.id}"),
-                                animatedContentScope
-                            )
-                    )
-                    Column(Modifier.padding(16.dp)) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = it.title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 32.sp,
+    Surface() {
+        LazyColumn(modifier = Modifier) {
+            item {
+                article.value?.let {
+                    with(sharedTransitionScope) {
+                        AsyncImage(
+                            model = it.image?.url,
+                            contentDescription = it.title,
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1.6f)
                                 .sharedElement(
-                                    sharedTransitionScope.rememberSharedContentState(
-                                        key = "title-${it.id}"
-                                    ), animatedVisibilityScope = animatedContentScope
+                                    sharedTransitionScope.rememberSharedContentState(key = "image-${it.id}"),
+                                    animatedContentScope
                                 )
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(Modifier.padding(16.dp)) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = it.title,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 32.sp,
+                                modifier = Modifier
+                                    .sharedElement(
+                                        sharedTransitionScope.rememberSharedContentState(
+                                            key = "title-${it.id}"
+                                        ), animatedVisibilityScope = animatedContentScope
+                                    )
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HtmlWebView(
+                                html = it.description,
+                                modifier = Modifier.height(400.dp)
+                            )
+                        }
                     }
-                    HtmlWebView(
-                        html= it.description,
-                        modifier = Modifier.height(400.dp)
-                    )
                 }
             }
         }

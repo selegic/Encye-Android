@@ -5,17 +5,15 @@ import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,18 +21,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.ViewCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import be.digitalia.compose.htmlconverter.htmlToAnnotatedString
 import coil3.compose.AsyncImage
 import com.selegic.encye.data.remote.dto.ArticleDto
-import io.github.malikshairali.nativehtml.RenderHtml
 
 private const val TAG = "ArticleDetail"
 
@@ -54,66 +47,86 @@ fun ArticleDetailScreen(
         viewModel.setArticle(articleDto)
     }
 
-    Surface() {
-        LazyColumn(modifier = Modifier) {
-            item {
-                article.value?.let {
-                    with(sharedTransitionScope) {
-                        AsyncImage(
-                            model = it.image?.url,
-                            contentDescription = it.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1.6f)
-                                .sharedElement(
-                                    sharedTransitionScope.rememberSharedContentState(key = "image-${it.id}"),
-                                    animatedContentScope
-                                )
+    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        article.value?.let {
+            with(sharedTransitionScope) {
+                AsyncImage(
+                    model = it.image?.url,
+                    contentDescription = it.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.6f)
+                        .sharedElement(
+                            sharedTransitionScope.rememberSharedContentState(key = "image-${it.id}"),
+                            animatedContentScope
                         )
-                        Column(Modifier.padding(16.dp)) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = it.title,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                lineHeight = 32.sp,
-                                modifier = Modifier
-                                    .sharedElement(
-                                        sharedTransitionScope.rememberSharedContentState(
-                                            key = "title-${it.id}"
-                                        ), animatedVisibilityScope = animatedContentScope
-                                    )
+                )
+                Column(Modifier.padding(16.dp)) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = it.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 32.sp,
+                        modifier = Modifier
+                            .sharedElement(
+                                sharedTransitionScope.rememberSharedContentState(
+                                    key = "title-${it.id}"
+                                ), animatedVisibilityScope = animatedContentScope
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            HtmlWebView(
-                                html = it.description,
-                                modifier = Modifier.height(400.dp)
-                            )
-                        }
-                    }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HtmlWebView(
+                        html = it.description
+                    )
                 }
             }
         }
     }
-
 }
 
 @Composable
 fun HtmlWebView(html: String, modifier: Modifier = Modifier) {
-//    AndroidView(
-//        modifier = modifier.fillMaxSize(),
-//        factory = { context ->
-//            WebView(context).apply {
-//                ViewCompat.setNestedScrollingEnabled(this,true)
-//                webViewClient = WebViewClient()
-//                settings.javaScriptEnabled = true // Enable JavaScript if needed
-//                loadData(htmlContent, "text/html", "utf-8") // Load the HTML string directly
-//            }
-//        },
-//        update = { webView ->
-//            webView.loadData(htmlContent, "text/html", "utf-8")
-//        }
-//    )
-    Text(text = remember(html) { htmlToAnnotatedString(html) })
+    val wrappedHtml = remember(html) {
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: pre-wrap;
+                background-color: transparent;
+                font-size: 14px;
+                font-family: sans-serif;
+                color: #666666;
+            }
+        </style>
+        </head>
+        <body>
+        $html
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { context ->
+            WebView(context).apply {
+                isVerticalScrollBarEnabled = false
+                setBackgroundColor(0x00000000) // Transparent
+                webViewClient = WebViewClient()
+                settings.javaScriptEnabled = true
+            }
+        },
+        update = { webView ->
+            webView.loadDataWithBaseURL(null, wrappedHtml, "text/html", "UTF-8", null)
+        }
+    )
 }

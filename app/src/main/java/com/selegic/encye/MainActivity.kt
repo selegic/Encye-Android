@@ -89,15 +89,15 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                 CircularProgressIndicator()
             }
         }
-//        false -> {
-//            // User is not logged in, show Onboarding (without the bottom nav)
-//            OnboardingScreen(
-//                onNavigateToHome = {
-//                    isLoggedIn = true
-//                }
-//            )
-//        }
-        true, false -> {
+        false -> {
+            // User is not logged in, show Onboarding (without the bottom nav)
+            OnboardingScreen(
+                onNavigateToHome = {
+                    isLoggedIn = true
+                }
+            )
+        }
+        true -> {
             // Main Application Flow
             val navigationState = rememberNavigationState(
                 startRoute = AppDestinations.Home,

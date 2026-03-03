@@ -50,7 +50,7 @@ class CommentViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val response = commentRepository.getComments(onModel, itemId, 1, 50)
-                _comments.value = response.data ?: emptyList()
+                _comments.value = response.comments ?: emptyList()
             } catch (e: Exception) {
                 // Ignore for now
             } finally {
@@ -108,7 +108,7 @@ fun CommentsBottomSheet(
                 modifier = Modifier.fillMaxSize()
             ) {
                 // 1. Header
-                CommentsHeader(commentCount = comments.size, onDismiss = onDismiss)
+                CommentsHeader(commentCount = if(isLoading) 0 else comments.size, onDismiss = onDismiss)
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
@@ -119,7 +119,7 @@ fun CommentsBottomSheet(
                         .weight(1f), // Takes up all remaining space above the input field
                     contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
                 ) {
-                    if (isLoading && comments.isEmpty()) {
+                    if (isLoading) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator()

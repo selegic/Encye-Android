@@ -7,9 +7,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,48 +53,64 @@ fun HomeScreen(
     var showCommentSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostDto?>(null) }
 
-    PullToRefreshBox(
-        modifier = Modifier,
-        onRefresh = onRefresh,
-        isRefreshing = false
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp) // Generous spacing between cards
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Home") },
+                actions = {
+                    IconButton(onClick = { /* Handle Profile */ }) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Profile"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        PullToRefreshBox(
+            modifier = Modifier.padding(paddingValues),
+            onRefresh = onRefresh,
+            isRefreshing = false
         ) {
-            item {
-                PostCreate(
-                    onFeelingClick = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    onPostClick = {},
-                    onPhotoClick = {},
-                    onVideoClick = {}
-                )
-            }
-            items(posts.itemCount) { index ->
-                posts[index]?.let { post ->
-                    TextFocusPostCard(
-                        post = post,
-//                        onLikeClick = {},
-                        onCommentClick = {
-                            selectedPost = post
-                            showCommentSheet = !showCommentSheet
-                        }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp) // Generous spacing between cards
+            ) {
+                item {
+                    PostCreate(
+                        onFeelingClick = {},
+                        modifier = Modifier.fillMaxWidth(),
+                        onPostClick = {},
+                        onPhotoClick = {},
+                        onVideoClick = {}
                     )
                 }
+                items(posts.itemCount) { index ->
+                    posts[index]?.let { post ->
+                        TextFocusPostCard(
+                            post = post,
+//                        onLikeClick = {},
+                            onCommentClick = {
+                                selectedPost = post
+                                showCommentSheet = !showCommentSheet
+                            }
+                        )
+                    }
+                }
             }
-        }
-        if (showCommentSheet && selectedPost != null) {
-            CommentsBottomSheet(
-                onModel = "Post",
-                itemId = selectedPost!!.id,
-                showSheet = true,
-                onDismiss = { showCommentSheet = false },
-                currentUserAvatar = "https://your-user-avatar-url.jpg" // Replace with logged in user data
-            )
+            if (showCommentSheet && selectedPost != null) {
+                CommentsBottomSheet(
+                    onModel = "Post",
+                    itemId = selectedPost!!.id,
+                    showSheet = true,
+                    onDismiss = { showCommentSheet = false },
+                    currentUserAvatar = "https://your-user-avatar-url.jpg" // Replace with logged in user data
+                )
+            }
         }
     }
 }

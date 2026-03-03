@@ -92,4 +92,10 @@ dependencies {
     implementation("io.github.malikshairali:native-html:1.0.0")
     implementation("be.digitalia.compose.htmlconverter:htmlconverter:1.1.0")
     implementation("com.google.android.gms:play-services-auth:21.5.1")
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.room.paging)
+    ksp(libs.androidx.room.compiler)
 }

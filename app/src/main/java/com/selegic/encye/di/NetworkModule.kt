@@ -2,6 +2,7 @@ package com.selegic.encye.di
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.selegic.encye.BuildConfig
+import com.selegic.encye.data.local.AppDatabase
 import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.CommentApiService
 import com.selegic.encye.data.remote.PostApiService
@@ -74,8 +75,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideArticleRepository(articleApiService: ArticleApiService): ArticleRepository {
-        return ArticleRepositoryImpl(articleApiService)
+    fun provideArticleRepository(articleApiService: ArticleApiService, appDatabase: AppDatabase): ArticleRepository {
+        return ArticleRepositoryImpl(articleApiService,appDatabase)
     }
 
     @Provides

@@ -2,6 +2,7 @@ package com.selegic.encye.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.selegic.encye.data.remote.dto.MobileAuthRequestDto
 import com.selegic.encye.data.repository.UserRepository
 import com.selegic.encye.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,6 +36,30 @@ class OnboardingViewModel @Inject constructor(
                 val data = response.data
                 if (data != null) {
                     // Save the token locally
+                    sessionManager.saveAuthToken(data.token)
+                    _uiState.value = OnboardingUiState.Success(isNewUser = data.new)
+                } else {
+                    _uiState.value = OnboardingUiState.Error("Invalid response from server")
+                }
+            } catch (e: Exception) {
+                _uiState.value = OnboardingUiState.Error(e.localizedMessage ?: "Unknown error occurred")
+            }
+        }
+    }
+
+    fun onGoogleSignInSuccess(email: String, firstName: String?, lastName: String?, profilePicture: String?) {
+        viewModelScope.launch {
+            _uiState.value = OnboardingUiState.Loading
+            try {
+                val request = MobileAuthRequestDto(
+                    email = email,
+                    firstName = firstName,
+                    lastName = lastName,
+                    profilePicture = profilePicture
+                )
+                val response = userRepository.mobileAuth(request)
+                val data = response.data
+                if (data != null) {
                     sessionManager.saveAuthToken(data.token)
                     _uiState.value = OnboardingUiState.Success(isNewUser = data.new)
                 } else {

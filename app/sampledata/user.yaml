@@ -114,14 +114,20 @@
             type: object
             required:
               - email
-              - password
             properties:
               email:
                 type: string
                 format: email
-              password:
+                example: john.doe@example.com
+              firstName:
                 type: string
-                format: password
+                example: John
+              lastName:
+                type: string
+                example: Doe
+              profilePicture:
+                type: string
+                example: https://example.com/profile.jpg
     responses:
       200:
         description: Mobile authentication successful
@@ -129,7 +135,6 @@
           application/json:
             schema:
               $ref: "#/components/schemas/ApiResponse"
-
 
 /api/v1/user/activate/{userId}:
   get:

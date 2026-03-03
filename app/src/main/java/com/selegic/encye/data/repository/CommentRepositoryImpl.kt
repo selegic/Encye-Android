@@ -4,6 +4,7 @@ import com.selegic.encye.data.remote.CommentApiService
 import com.selegic.encye.data.remote.dto.ApiResponse
 import com.selegic.encye.data.remote.dto.CommentDto
 import com.selegic.encye.data.remote.dto.CommentRequest
+import com.selegic.encye.data.remote.dto.CommentResponse
 import javax.inject.Inject
 
 class CommentRepositoryImpl @Inject constructor(
@@ -38,7 +39,7 @@ class CommentRepositoryImpl @Inject constructor(
         itemId: String,
         page: Int,
         limit: Int
-    ): ApiResponse<List<CommentDto>> {
+    ): CommentResponse {
         return commentApiService.getComments(onModel, itemId, page, limit)
     }
 

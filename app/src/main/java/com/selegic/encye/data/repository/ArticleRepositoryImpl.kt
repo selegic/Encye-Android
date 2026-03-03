@@ -1,13 +1,17 @@
 package com.selegic.encye.data.repository
 
+import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import com.selegic.encye.data.paging.ArticlePagingSource
+import androidx.paging.map
+import com.selegic.encye.data.local.AppDatabase
+import com.selegic.encye.data.paging.ArticleRemoteMediator
 import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.dto.ApiResponse
 import com.selegic.encye.data.remote.dto.ArticleDto
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -17,17 +21,38 @@ import java.io.File
 import javax.inject.Inject
 
 class ArticleRepositoryImpl @Inject constructor(
-    private val apiService: ArticleApiService
+    private val apiService: ArticleApiService,
+    private val database: AppDatabase
 ) : ArticleRepository {
 
+    @OptIn(ExperimentalPagingApi::class)
     override fun getArticles(): Flow<PagingData<ArticleDto>> {
+        val pagingSourceFactory = { database.articleDao.pagingSource() }
+
         return Pager(
             config = PagingConfig(
                 pageSize = 10,
                 enablePlaceholders = false
             ),
-            pagingSourceFactory = { ArticlePagingSource(apiService) }
-        ).flow
+            remoteMediator = ArticleRemoteMediator(
+                apiService = apiService,
+                database = database
+            ),
+            pagingSourceFactory = pagingSourceFactory
+        ).flow.map { pagingData ->
+            pagingData.map { entity ->
+                ArticleDto(
+                    id = entity.id,
+                    _id = entity.monogoId,
+                    title = entity.title,
+                    description = entity.description,
+                    image = entity.image,
+                    autoCategory = entity.autoCategory,
+                    createdBy = entity.createdBy,
+                    createdAt = entity.createdAt
+                )
+            }
+        }
     }
 
     override suspend fun createArticle(

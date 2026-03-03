@@ -2,7 +2,7 @@ package com.selegic.encye.data.repository
 
 import com.selegic.encye.data.remote.dto.ApiResponse
 import com.selegic.encye.data.remote.dto.CommentDto
-import com.selegic.encye.data.remote.dto.CommentRequest
+import com.selegic.encye.data.remote.dto.CommentResponse
 
 interface CommentRepository {
     
@@ -28,7 +28,7 @@ interface CommentRepository {
         itemId: String,
         page: Int = 1,
         limit: Int = 10
-    ): ApiResponse<List<CommentDto>>
+    ): CommentResponse
 
     suspend fun deleteComment(
         commentId: String

@@ -3,6 +3,7 @@ package com.selegic.encye.data.remote
 import com.selegic.encye.data.remote.dto.ApiResponse
 import com.selegic.encye.data.remote.dto.CommentDto
 import com.selegic.encye.data.remote.dto.CommentRequest
+import com.selegic.encye.data.remote.dto.CommentResponse
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -39,7 +40,7 @@ interface CommentApiService {
         @Path("itemId") itemId: String,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10
-    ): ApiResponse<List<CommentDto>>
+    ): CommentResponse
 
     @DELETE("/api/v1/comment/{commentId}")
     suspend fun deleteComment(

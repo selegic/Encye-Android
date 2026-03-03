@@ -5,6 +5,8 @@ import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,8 +32,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.selegic.encye.data.remote.dto.ArticleDto
-
-private const val TAG = "ArticleDetail"
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -47,7 +49,13 @@ fun ArticleDetailScreen(
         viewModel.setArticle(articleDto)
     }
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    val isTransitionRunning = animatedContentScope.transition.isRunning
+
+    Column(
+        modifier = Modifier
+            .clipToBounds()
+            .verticalScroll(rememberScrollState())
+    ) {
         article.value?.let {
             with(sharedTransitionScope) {
                 AsyncImage(
@@ -77,11 +85,31 @@ fun ArticleDetailScreen(
                             )
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    HtmlWebView(
-                        html = it.description
+                    ArticleBody(
+                        html = it.description,
+                        showWebView = !isTransitionRunning,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ArticleBody(
+    html: String,
+    showWebView: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.clipToBounds()) {
+        if (showWebView) {
+            HtmlWebView(
+                html = html,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            Spacer(Modifier.height(1.dp))
         }
     }
 }
@@ -106,6 +134,14 @@ fun HtmlWebView(html: String, modifier: Modifier = Modifier) {
                 font-family: sans-serif;
                 color: #666666;
             }
+            img, table {
+                max-width: 100%;
+                height: auto;
+            }
+            ul {
+                padding-left: 20px; 
+                margin-left: 0;
+            }
         </style>
         </head>
         <body>
@@ -116,7 +152,7 @@ fun HtmlWebView(html: String, modifier: Modifier = Modifier) {
     }
 
     AndroidView(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.clipToBounds(),
         factory = { context ->
             WebView(context).apply {
                 isVerticalScrollBarEnabled = false

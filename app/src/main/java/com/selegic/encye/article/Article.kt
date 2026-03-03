@@ -1,8 +1,13 @@
 package com.selegic.encye.article
 
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +32,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -39,16 +46,21 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +74,9 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import coil3.compose.AsyncImage
 import com.selegic.encye.data.remote.dto.ArticleDto
 
+private val HtmlTagRegex = Regex("<[^>]*>")
+private val HtmlWhitespaceRegex = Regex("\\s+")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArticleScreen(
@@ -74,47 +89,83 @@ fun ArticleScreen(
     var selectedCategory by remember { mutableStateOf("For You") }
     val categories = listOf("For You", "Technology", "Global", "Economy", "Science", "Health")
 
+    // Scroll-direction tracking: positive = scrolling down, negative = scrolling up
+    var scrollDelta by remember { mutableFloatStateOf(0f) }
+    var isHeaderVisible by remember { mutableStateOf(true) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
+                scrollDelta += delta
+                // Threshold to avoid flickering on tiny scrolls
+                if (scrollDelta < -30f) {
+                    isHeaderVisible = false
+                    scrollDelta = 0f
+                } else if (scrollDelta > 30f) {
+                    isHeaderVisible = true
+                    scrollDelta = 0f
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Discover",
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Discover",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${articles.itemCount} stories ready",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(
                         onClick = { },
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
                     ) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-                // Expressive Search Bar
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                AnimatedVisibility(
+                    visible = isHeaderVisible,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Search news, topics, or authors...",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Search news, topics, or authors",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -123,20 +174,26 @@ fun ArticleScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp)
+                .fillMaxSize()
+                .nestedScroll(nestedScrollConnection),
+            contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            // Category Tabs
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(categories) { category ->
                         FilterChip(
                             selected = selectedCategory == category,
                             onClick = { selectedCategory = category },
-                            label = { Text(category, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) },
+                            label = {
+                                Text(
+                                    category,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            },
                             shape = CircleShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -145,6 +202,27 @@ fun ArticleScreen(
                             border = null
                         )
                     }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Top stories",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${articles.itemCount} results",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -196,126 +274,188 @@ fun ArticleScreen(
 @Composable
 fun ArticleCard(article: ArticleDto, onCLick: (String) -> Unit = {}, sharedTransitionScope: SharedTransitionScope, animatedContentScope: AnimatedContentScope) {
     with(sharedTransitionScope) {
-        Column(
+        val authorName = listOfNotNull(article.createdBy?.firstName, article.createdBy?.lastName)
+            .joinToString(" ")
+            .ifBlank { "Encye Desk" }
+        val plainDescription = article.description.toPlainText()
+        val categoryName = article.autoCategory?.primary?.name?.uppercase()
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onCLick(article.id) }
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clickable { onCLick(article.id) },
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         ) {
-            // Expressive Shape Image
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1.6f)
-
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                AsyncImage(
-                    model = article.image?.url,
-                    contentDescription = article.title,
-                    contentScale = ContentScale.Crop,
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .sharedElement(
-                            sharedTransitionScope.rememberSharedContentState(key = "image-${article.id}"),
-                            animatedContentScope
-                        )
-                        .clip(RoundedCornerShape(32.dp))
-                )
-                // Category Badge
-                article.autoCategory?.primary?.let {
-                    Surface(
-                        modifier = Modifier.padding(16.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                        .size(width = 110.dp, height = 128.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                ) {
+                    AsyncImage(
+                        model = article.image?.url,
+                        contentDescription = article.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .sharedElement(
+                                sharedTransitionScope.rememberSharedContentState(key = "image-${article.id}"),
+                                animatedContentScope
+                            )
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.28f)
+                                    ),
+                                    startY = 32f
+                                )
+                            )
+                    )
+
+                    if (categoryName != null) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .align(Alignment.BottomStart),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)
+                        ) {
+                            Text(
+                                text = categoryName,
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.6.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 128.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
                     ) {
                         Text(
-                            text = it.name.uppercase(),
+                            text = formatArticleDate(article.createdAt),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        IconButton(
+                            onClick = { },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.BookmarkBorder,
+                                contentDescription = "Save",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Text(
+                        modifier = Modifier.sharedElement(
+                            sharedTransitionScope.rememberSharedContentState(key = "title-${article.id}"),
+                            animatedContentScope
+                        ),
+                        text = article.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 22.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Text(
+                        text = if (plainDescription.isBlank()) AnnotatedString.fromHtml(article.description) else AnnotatedString(plainDescription),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 18.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = article.createdBy?.profilePicture,
+                            contentDescription = null,
                             modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp,
-                            color = Color.White
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentScale = ContentScale.Crop
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = authorName,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = categoryName ?: "Featured",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Headline
-            Text(
-                modifier = Modifier.sharedElement(
-                    sharedTransitionScope.rememberSharedContentState(key = "title-${article.id}"),
-                    animatedContentScope
-                ),
-                text = article.title,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                lineHeight = 32.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-
-            AnnotatedString.fromHtml(article.description)
-            // Description
-            Text(
-                text = AnnotatedString.fromHtml(article.description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Author Info Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = article.createdBy?.profilePicture,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "${article.createdBy?.firstName} ${article.createdBy?.lastName}",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = article.createdAt, // This needs to be formatted
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-                IconButton(onClick = { }) {
-                    Icon(
-                        Icons.Outlined.BookmarkBorder,
-                        contentDescription = "Save",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
     }
 }
 
+private fun String.toPlainText(): String {
+    return replace(HtmlTagRegex, " ")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace(HtmlWhitespaceRegex, " ")
+        .trim()
+}
+
+private fun formatArticleDate(raw: String): String {
+    val cleaned = raw.substringBefore('T').substringBefore(' ')
+    return cleaned.ifBlank { raw }.take(16)
+}
+
 @Preview
 @Composable
 fun ArticleScreenPreview() {
-    SharedTransitionLayout( ) {
+    SharedTransitionLayout() {
         ArticleScreen(
             animatedContentScope = LocalNavAnimatedContentScope.current,
             sharedTransitionScope = this@SharedTransitionLayout,

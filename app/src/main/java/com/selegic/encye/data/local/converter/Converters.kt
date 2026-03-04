@@ -9,6 +9,16 @@ import kotlinx.serialization.json.Json
 
 class Converters {
     @TypeConverter
+    fun fromStringList(value: List<String>?): String? {
+        return value?.let { Json.encodeToString(it) }
+    }
+
+    @TypeConverter
+    fun toStringList(value: String?): List<String> {
+        return value?.let { Json.decodeFromString(it) } ?: emptyList()
+    }
+
+    @TypeConverter
     fun fromImageDto(value: ImageDto?): String? {
         return value?.let { Json.encodeToString(it) }
     }

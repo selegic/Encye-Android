@@ -21,12 +21,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import com.selegic.encye.data.remote.dto.CommentDto
 import com.selegic.encye.data.repository.CommentRepository
+import com.selegic.encye.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,38 +37,80 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CommentViewModel @Inject constructor(
-    private val commentRepository: CommentRepository
+    private val commentRepository: CommentRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _comments = MutableStateFlow<List<CommentDto>>(emptyList())
     val comments: StateFlow<List<CommentDto>> = _comments.asStateFlow()
 
+    private val _commentCount = MutableStateFlow(0)
+    val commentCount: StateFlow<Int> = _commentCount.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    fun fetchComments(onModel: String, itemId: String) {
+    private val _isSubmitting = MutableStateFlow(false)
+    val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
+
+    private val _isSignedIn = MutableStateFlow(false)
+    val isSignedIn: StateFlow<Boolean> = _isSignedIn.asStateFlow()
+
+    private val _submissionVersion = MutableStateFlow(0)
+    val submissionVersion: StateFlow<Int> = _submissionVersion.asStateFlow()
+
+    init {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isSignedIn.value = !sessionManager.getAuthToken().isNullOrBlank()
+        }
+    }
+
+    fun fetchComments(
+        onModel: String,
+        itemId: String,
+        clearExisting: Boolean = true,
+        showLoading: Boolean = true
+    ) {
+        viewModelScope.launch {
+            if (showLoading) {
+                _isLoading.value = true
+            }
+            if (clearExisting) {
+                _comments.value = emptyList()
+                _commentCount.value = 0
+            }
             try {
                 val response = commentRepository.getComments(onModel, itemId, 1, 50)
-                _comments.value = response.comments ?: emptyList()
+                _comments.value = response.comments
+                _commentCount.value = response.totalComments
             } catch (e: Exception) {
                 // Ignore for now
             } finally {
-                _isLoading.value = false
+                if (showLoading) {
+                    _isLoading.value = false
+                }
             }
         }
     }
 
     fun addComment(onModel: String, itemId: String, text: String) {
+        if (!_isSignedIn.value) return
+
         viewModelScope.launch {
+            _isSubmitting.value = true
             try {
                 val response = commentRepository.createComment(onModel, itemId, text)
-                response.data?.let { newComment ->
-                    _comments.value = listOf(newComment) + _comments.value
+                if (response.success) {
+                    response.data?.let { newComment ->
+                        _comments.value = listOf(newComment) + _comments.value
+                        _commentCount.value += 1
+                    }
+                    _submissionVersion.value += 1
                 }
             } catch (e: Exception) {
                 // Ignore for now
+            } finally {
+                _isSubmitting.value = false
             }
         }
     }
@@ -88,7 +131,11 @@ fun CommentsBottomSheet(
     )
 
     val comments by viewModel.comments.collectAsState()
+    val commentCount by viewModel.commentCount.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isSubmitting by viewModel.isSubmitting.collectAsState()
+    val isSignedIn by viewModel.isSignedIn.collectAsState()
+    val submissionVersion by viewModel.submissionVersion.collectAsState()
 
     LaunchedEffect(itemId, showSheet) {
         if (showSheet) {
@@ -101,6 +148,7 @@ fun CommentsBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             // Takes up 90% of the screen height when fully expanded
             modifier = Modifier.fillMaxHeight(0.9f)
         ) {
@@ -108,7 +156,7 @@ fun CommentsBottomSheet(
                 modifier = Modifier.fillMaxSize()
             ) {
                 // 1. Header
-                CommentsHeader(commentCount = if(isLoading) 0 else comments.size, onDismiss = onDismiss)
+                CommentsHeader(commentCount = if (isLoading) 0 else commentCount, onDismiss = onDismiss)
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
@@ -138,12 +186,19 @@ fun CommentsBottomSheet(
 
                 // 3. Sticky Bottom Input Area
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                CommentInputField(
-                    currentUserAvatar = currentUserAvatar,
-                    onSend = { text ->
-                        viewModel.addComment(onModel, itemId, text)
-                    }
-                )
+                if (isSignedIn) {
+                    CommentInputField(
+                        currentUserAvatar = currentUserAvatar,
+                        isSubmitting = isSubmitting,
+                        clearSignal = submissionVersion,
+                        applyImePadding = false,
+                        onSend = { text ->
+                            viewModel.addComment(onModel, itemId, text)
+                        }
+                    )
+                } else {
+                    SignInToCommentPrompt()
+                }
             }
         }
     }
@@ -276,16 +331,27 @@ fun CommentItem(comment: CommentDto) {
 @Composable
 fun CommentInputField(
     currentUserAvatar: String?,
-    onSend: (String) -> Unit
+    isSubmitting: Boolean = false,
+    clearSignal: Int = 0,
+    applyImePadding: Boolean = true,
+    onSend: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var text by remember { mutableStateOf("") }
+    val trimmedText = text.trim()
+
+    LaunchedEffect(clearSignal) {
+        if (clearSignal > 0) {
+            text = ""
+        }
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
         // Using WindowInsets to ensure the field sits above the keyboard smoothly
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .imePadding()
+            .then(if (applyImePadding) Modifier.imePadding() else Modifier)
     ) {
         Row(
             modifier = Modifier
@@ -312,6 +378,7 @@ fun CommentInputField(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 40.dp, max = 100.dp), // Grows slightly if multi-line
+                enabled = !isSubmitting,
                 shape = RoundedCornerShape(20.dp),
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
@@ -322,10 +389,24 @@ fun CommentInputField(
                 maxLines = 4
             )
 
-            if (text.isNotBlank()) {
+            when {
+                isSubmitting -> {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+
+                trimmedText.isNotBlank() -> {
                 IconButton(onClick = {
-                    onSend(text)
-                    text = ""
+                    onSend(trimmedText)
                 }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
@@ -333,6 +414,7 @@ fun CommentInputField(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
+            }
             }
         }
     }
@@ -358,5 +440,33 @@ fun EmptyCommentsState() {
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun SignInToCommentPrompt() {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Sign in to add a comment",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "You can still read the discussion without an account.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

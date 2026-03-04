@@ -11,7 +11,7 @@ import com.selegic.encye.data.local.entity.ArticleRemoteKey
 
 @Database(
     entities = [ArticleEntity::class, ArticleRemoteKey::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

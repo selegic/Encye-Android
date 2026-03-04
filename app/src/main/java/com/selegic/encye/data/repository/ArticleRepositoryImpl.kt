@@ -47,6 +47,7 @@ class ArticleRepositoryImpl @Inject constructor(
                     title = entity.title,
                     description = entity.description,
                     image = entity.image,
+                    tags = entity.tags,
                     autoCategory = entity.autoCategory,
                     createdBy = entity.createdBy,
                     createdAt = entity.createdAt

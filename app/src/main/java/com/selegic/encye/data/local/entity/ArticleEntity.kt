@@ -14,6 +14,7 @@ data class ArticleEntity(
     val title: String,
     val description: String,
     val image: ImageDto? = null,
+    val tags: List<String> = emptyList(),
     val autoCategory: AutoCategoryDto? = null,
     val createdBy: UserDto? = null,
     val createdAt: String

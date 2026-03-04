@@ -79,6 +79,7 @@ class ArticleRemoteMediator(
                         title = dto.title,
                         description = dto.description,
                         image = dto.image,
+                        tags = dto.tags,
                         autoCategory = dto.autoCategory,
                         createdBy = dto.createdBy,
                         createdAt = dto.createdAt

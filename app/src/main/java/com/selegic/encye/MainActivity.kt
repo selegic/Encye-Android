@@ -106,26 +106,11 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                 topLevelRoutes = AppDestinations.entries().toSet()
             )
             val navigator = remember { Navigator(navigationState) }
+            val currentRoute = navigationState.backStacks[navigationState.topLevelRoute]?.lastOrNull()
+                ?: navigationState.topLevelRoute
+            val showNavigationSuite = currentRoute == navigationState.topLevelRoute
 
-            NavigationSuiteScaffold(
-                navigationSuiteItems = {
-                    AppDestinations.entries().forEach { destination ->
-                        item(
-                            icon = {
-                                Icon(
-                                    destination.icon,
-                                    contentDescription = destination.label
-                                )
-                            },
-                            label = { Text(destination.label, fontSize = 10.sp) },
-                            selected = destination == navigationState.topLevelRoute,
-                            onClick = {
-                                navigator.navigate(destination)
-                            }
-                        )
-                    }
-                }
-            ) {
+            val appContent: @Composable () -> Unit = {
                 SharedTransitionLayout {
                     Box(modifier = Modifier.fillMaxSize()) {
                         val entryProvider: (NavKey) -> NavEntry<NavKey> = entryProvider {
@@ -192,6 +177,32 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                         )
                     }
                 }
+            }
+
+            if (showNavigationSuite) {
+                NavigationSuiteScaffold(
+                    navigationSuiteItems = {
+                        AppDestinations.entries().forEach { destination ->
+                            item(
+                                icon = {
+                                    Icon(
+                                        destination.icon,
+                                        contentDescription = destination.label
+                                    )
+                                },
+                                label = { Text(destination.label, fontSize = 10.sp) },
+                                selected = destination == navigationState.topLevelRoute,
+                                onClick = {
+                                    navigator.navigate(destination)
+                                }
+                            )
+                        }
+                    }
+                ) {
+                    appContent()
+                }
+            } else {
+                appContent()
             }
         }
     }

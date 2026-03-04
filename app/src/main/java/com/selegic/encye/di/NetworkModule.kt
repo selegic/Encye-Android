@@ -6,6 +6,7 @@ import com.selegic.encye.data.local.AppDatabase
 import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.CommentApiService
 import com.selegic.encye.data.remote.PostApiService
+import com.selegic.encye.data.remote.TrainingApiService
 import com.selegic.encye.data.remote.UserApiService
 import com.selegic.encye.data.repository.ArticleRepository
 import com.selegic.encye.data.repository.ArticleRepositoryImpl
@@ -13,6 +14,8 @@ import com.selegic.encye.data.repository.CommentRepository
 import com.selegic.encye.data.repository.CommentRepositoryImpl
 import com.selegic.encye.data.repository.PostRepository
 import com.selegic.encye.data.repository.PostRepositoryImpl
+import com.selegic.encye.data.repository.TrainingRepository
+import com.selegic.encye.data.repository.TrainingRepositoryImpl
 import com.selegic.encye.data.repository.UserRepository
 import com.selegic.encye.data.repository.UserRepositoryImpl
 import com.selegic.encye.util.AuthInterceptor
@@ -112,5 +115,17 @@ object NetworkModule {
     @Singleton
     fun provideCommentRepository(commentApiService: CommentApiService): CommentRepository {
         return CommentRepositoryImpl(commentApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTrainingApiService(retrofit: Retrofit): TrainingApiService {
+        return retrofit.create(TrainingApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTrainingRepository(trainingApiService: TrainingApiService): TrainingRepository {
+        return TrainingRepositoryImpl(trainingApiService)
     }
 }

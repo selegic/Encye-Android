@@ -8,6 +8,7 @@ data class ApiResponse<T>(
     val msg: String,
     val data: T? = null,
     val totalCount: Int? = null,
+    val totalTraining: Int? = null,
     val currentPage: Int? = null,
     val hasMore: Boolean? = null
 )

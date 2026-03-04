@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -44,6 +43,9 @@ import com.selegic.encye.navigation.Navigator
 import com.selegic.encye.navigation.rememberNavigationState
 import com.selegic.encye.navigation.toEntries
 import com.selegic.encye.onboarding.OnboardingScreen
+import com.selegic.encye.training.TrainingDetailScreen
+import com.selegic.encye.training.TrainingModuleDetailScreen
+import com.selegic.encye.training.TrainingScreen
 import com.selegic.encye.ui.theme.EncyeTheme
 import com.selegic.encye.util.SessionManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -125,7 +127,7 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                 }
             ) {
                 SharedTransitionLayout {
-                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Box(modifier = Modifier.fillMaxSize()) {
                         val entryProvider: (NavKey) -> NavEntry<NavKey> = entryProvider {
                             entry<AppDestinations.Home> {
                                 Home()
@@ -134,7 +136,11 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                 Greeting(name = "Video")
                             }
                             entry<AppDestinations.Training> {
-                                Greeting(name = "Training")
+                                TrainingScreen(
+                                    onNavigateToTrainingDetail = { trainingId ->
+                                        navigator.navigate(AppDestinations.TrainingDetail(trainingId))
+                                    }
+                                )
                             }
                             entry<AppDestinations.Article> {
                                 ArticleScreen(
@@ -156,10 +162,31 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                     animatedContentScope = LocalNavAnimatedContentScope.current
                                 )
                             }
+                            entry<AppDestinations.TrainingDetail> {
+                                TrainingDetailScreen(
+                                    trainingId = it.id,
+                                    onBack = { navigator.goBack() },
+                                    onOpenModule = { trainingTitle, module ->
+                                        navigator.navigate(
+                                            AppDestinations.TrainingModuleDetail(
+                                                trainingTitle = trainingTitle,
+                                                module = module
+                                            )
+                                        )
+                                    }
+                                )
+                            }
+                            entry<AppDestinations.TrainingModuleDetail> {
+                                TrainingModuleDetailScreen(
+                                    trainingTitle = it.trainingTitle,
+                                    module = it.module,
+                                    onBack = { navigator.goBack() }
+                                )
+                            }
                         }
 
                         NavDisplay(
-                            modifier = Modifier.padding(innerPadding),
+                            modifier = Modifier.fillMaxSize(),
                             entries = navigationState.toEntries(entryProvider),
                             onBack = { navigator.goBack() }
                         )
@@ -186,6 +213,15 @@ sealed class AppDestinations(val label: String) : NavKey {
 
     @Serializable
     data class ArticleDetail(val id: String, val dto: ArticleDto) : AppDestinations("Article")
+
+    @Serializable
+    data class TrainingDetail(val id: String) : AppDestinations("Training")
+
+    @Serializable
+    data class TrainingModuleDetail(
+        val trainingTitle: String,
+        val module: com.selegic.encye.data.remote.dto.TrainingModuleDto
+    ) : AppDestinations("Training")
 
     @Serializable
     data object Community : AppDestinations("Community")

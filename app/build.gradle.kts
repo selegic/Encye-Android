@@ -29,7 +29,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"https://your.api.url/\"")
+//            buildConfigField("String", "BASE_URL", "\"https://your.api.url/\"")
+            buildConfigField("String", "BASE_URL", "\"https://test.server.encye.com/\"")
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             buildConfigField("String", "BASE_URL", "\"https://test.server.encye.com/\"")

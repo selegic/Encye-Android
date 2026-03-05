@@ -17,6 +17,21 @@ interface TrainingRepository {
 
     suspend fun getAllTrainings(page: Int = 1, limit: Int = 8): ApiResponse<List<TrainingDto>>
 
+    suspend fun getCachedTrainings(): List<TrainingDto>
+
+    suspend fun getCachedTrainingById(id: String): TrainingDto?
+
+    suspend fun isTrainingCacheStale(ttlMillis: Long): Boolean
+
+    suspend fun refreshTrainingsIfStale(
+        ttlMillis: Long,
+        force: Boolean = false,
+        page: Int = 1,
+        limit: Int = 8
+    ): ApiResponse<List<TrainingDto>>
+
+    suspend fun refreshTrainingById(id: String): ApiResponse<TrainingDto>
+
     suspend fun getOrganizationTrainings(
         page: Int = 1,
         limit: Int = 8

@@ -128,8 +128,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideTrainingRepository(trainingApiService: TrainingApiService): TrainingRepository {
-        return TrainingRepositoryImpl(trainingApiService)
+    fun provideTrainingRepository(trainingApiService: TrainingApiService, appDatabase: AppDatabase): TrainingRepository {
+        return TrainingRepositoryImpl(trainingApiService, appDatabase)
     }
 
     @Provides

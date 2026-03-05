@@ -28,33 +28,53 @@ class TrainingDetailViewModel @Inject constructor(
     val uiState: StateFlow<TrainingDetailUiState> = _uiState.asStateFlow()
 
     fun loadTraining(trainingId: String, forceRefresh: Boolean = false) {
-        val currentState = _uiState.value
-        if (!forceRefresh &&
-            currentState.training != null &&
-            currentState.loadedTrainingId == trainingId &&
-            currentState.errorMessage == null
-        ) {
-            return
-        }
-
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val currentState = _uiState.value
+            val cacheStale = trainingRepository.isTrainingCacheStale(TRAINING_CACHE_TTL_MILLIS)
+
+            if (!forceRefresh &&
+                currentState.training != null &&
+                currentState.loadedTrainingId == trainingId &&
+                currentState.errorMessage == null &&
+                !cacheStale
+            ) {
+                return@launch
+            }
+
+            val cachedTraining = trainingRepository.getCachedTrainingById(trainingId)
+            _uiState.update {
+                it.copy(
+                    isLoading = cachedTraining == null,
+                    training = cachedTraining ?: if (it.loadedTrainingId == trainingId) it.training else null,
+                    errorMessage = null,
+                    loadedTrainingId = trainingId
+                )
+            }
+
+            val shouldRefresh = forceRefresh || cacheStale || cachedTraining == null
+            if (!shouldRefresh) {
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
+
             runCatching {
-                trainingRepository.getTrainingById(trainingId)
+                trainingRepository.refreshTrainingById(trainingId)
             }.onSuccess { response ->
+                val latestCachedTraining = trainingRepository.getCachedTrainingById(trainingId)
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        training = response.data,
+                        training = latestCachedTraining ?: response.data ?: cachedTraining,
                         errorMessage = if (response.success) null else response.msg,
                         loadedTrainingId = trainingId
                     )
                 }
             }.onFailure { error ->
+                val latestCachedTraining = trainingRepository.getCachedTrainingById(trainingId) ?: cachedTraining
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        training = null,
+                        training = latestCachedTraining,
                         errorMessage = error.message ?: "Unable to load training",
                         loadedTrainingId = trainingId
                     )

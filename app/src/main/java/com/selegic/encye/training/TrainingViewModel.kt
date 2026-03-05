@@ -27,28 +27,49 @@ class TrainingViewModel @Inject constructor(
     val uiState: StateFlow<TrainingUiState> = _uiState.asStateFlow()
 
     init {
-        loadTrainings()
+        loadTrainingsInternal(forceRefresh = false)
     }
 
     fun loadTrainings() {
+        loadTrainingsInternal(forceRefresh = true)
+    }
+
+    private fun loadTrainingsInternal(forceRefresh: Boolean) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val cachedTrainings = trainingRepository.getCachedTrainings()
+            _uiState.update {
+                it.copy(
+                    isLoading = cachedTrainings.isEmpty(),
+                    trainings = cachedTrainings,
+                    errorMessage = null
+                )
+            }
+
             runCatching {
-                trainingRepository.getAllTrainings()
+                trainingRepository.refreshTrainingsIfStale(
+                    ttlMillis = TRAINING_CACHE_TTL_MILLIS,
+                    force = forceRefresh
+                )
             }.onSuccess { response ->
+                val latestTrainings = trainingRepository.getCachedTrainings()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        trainings = response.data.orEmpty(),
-                        errorMessage = if (response.success) null else response.msg
+                        trainings = latestTrainings,
+                        errorMessage = if (response.success) {
+                            null
+                        } else {
+                            response.msg.ifBlank { "Unable to refresh trainings" }
+                        }
                     )
                 }
             }.onFailure { error ->
+                val latestTrainings = trainingRepository.getCachedTrainings()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = error.message ?: "Unable to load trainings",
-                        trainings = emptyList()
+                        trainings = latestTrainings,
+                        errorMessage = error.message ?: "Unable to load trainings"
                     )
                 }
             }

@@ -3,6 +3,7 @@ package com.selegic.encye.data.local.converter
 import androidx.room.TypeConverter
 import com.selegic.encye.data.remote.dto.AutoCategoryDto
 import com.selegic.encye.data.remote.dto.ImageDto
+import com.selegic.encye.data.remote.dto.TrainingModuleDto
 import com.selegic.encye.data.remote.dto.UserDto
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -46,5 +47,15 @@ class Converters {
     @TypeConverter
     fun toUserDto(value: String?): UserDto? {
         return value?.let { Json.decodeFromString(it) }
+    }
+
+    @TypeConverter
+    fun fromTrainingModuleDtoList(value: List<TrainingModuleDto>?): String? {
+        return value?.let { Json.encodeToString(it) }
+    }
+
+    @TypeConverter
+    fun toTrainingModuleDtoList(value: String?): List<TrainingModuleDto> {
+        return value?.let { Json.decodeFromString(it) } ?: emptyList()
     }
 }

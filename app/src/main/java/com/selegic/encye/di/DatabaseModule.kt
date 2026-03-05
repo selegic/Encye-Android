@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.selegic.encye.data.local.AppDatabase
 import com.selegic.encye.data.local.dao.ArticleDao
 import com.selegic.encye.data.local.dao.ArticleRemoteKeyDao
+import com.selegic.encye.data.local.dao.TrainingDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,5 +40,11 @@ object DatabaseModule {
     @Singleton
     fun provideArticleRemoteKeyDao(database: AppDatabase): ArticleRemoteKeyDao {
         return database.articleRemoteKeyDao
+    }
+
+    @Provides
+    @Singleton
+    fun provideTrainingDao(database: AppDatabase): TrainingDao {
+        return database.trainingDao
     }
 }

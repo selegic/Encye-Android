@@ -1,5 +1,7 @@
 package com.selegic.encye.data.repository
 
+import com.selegic.encye.data.local.AppDatabase
+import com.selegic.encye.data.local.entity.TrainingEntity
 import com.selegic.encye.data.remote.TrainingApiService
 import com.selegic.encye.data.remote.dto.ApiResponse
 import com.selegic.encye.data.remote.dto.TrainingDto
@@ -12,8 +14,11 @@ import java.io.File
 import javax.inject.Inject
 
 class TrainingRepositoryImpl @Inject constructor(
-    private val trainingApiService: TrainingApiService
+    private val trainingApiService: TrainingApiService,
+    private val appDatabase: AppDatabase
 ) : TrainingRepository {
+
+    private val trainingDao = appDatabase.trainingDao
 
     override suspend fun createTraining(
         title: String,
@@ -35,6 +40,57 @@ class TrainingRepositoryImpl @Inject constructor(
 
     override suspend fun getAllTrainings(page: Int, limit: Int): ApiResponse<List<TrainingDto>> {
         return trainingApiService.getAllTrainings(page, limit)
+    }
+
+    override suspend fun getCachedTrainings(): List<TrainingDto> {
+        return trainingDao.getAll().map { it.toDto() }
+    }
+
+    override suspend fun getCachedTrainingById(id: String): TrainingDto? {
+        return trainingDao.getById(id)?.toDto()
+    }
+
+    override suspend fun isTrainingCacheStale(ttlMillis: Long): Boolean {
+        val latestCacheTimestamp = trainingDao.getLatestCacheTimestamp() ?: return true
+        val ageMillis = System.currentTimeMillis() - latestCacheTimestamp
+        return ageMillis > ttlMillis
+    }
+
+    override suspend fun refreshTrainingsIfStale(
+        ttlMillis: Long,
+        force: Boolean,
+        page: Int,
+        limit: Int
+    ): ApiResponse<List<TrainingDto>> {
+        if (!force && !isTrainingCacheStale(ttlMillis)) {
+            val cached = getCachedTrainings()
+            return ApiResponse(
+                success = true,
+                msg = "Loaded from cache",
+                data = cached
+            )
+        }
+
+        val response = trainingApiService.getAllTrainings(page, limit)
+        if (response.success) {
+            val now = System.currentTimeMillis()
+            val entities = response.data.orEmpty().map { it.toEntity(now) }
+            trainingDao.clearAll()
+            if (entities.isNotEmpty()) {
+                trainingDao.upsertAll(entities)
+            }
+        }
+        return response
+    }
+
+    override suspend fun refreshTrainingById(id: String): ApiResponse<TrainingDto> {
+        val response = trainingApiService.getTrainingById(id)
+        if (response.success) {
+            response.data?.let {
+                trainingDao.upsert(it.toEntity(System.currentTimeMillis()))
+            }
+        }
+        return response
     }
 
     override suspend fun getOrganizationTrainings(
@@ -77,5 +133,38 @@ class TrainingRepositoryImpl @Inject constructor(
     private fun File.toImagePart(partName: String): MultipartBody.Part {
         val requestFile = asRequestBody("image/*".toMediaTypeOrNull())
         return MultipartBody.Part.createFormData(partName, name, requestFile)
+    }
+
+    private fun TrainingEntity.toDto(): TrainingDto {
+        return TrainingDto(
+            id = id,
+            title = title,
+            summary = summary,
+            coverImage = coverImage,
+            modules = modules,
+            organization = organization,
+            similar = similar,
+            createdBy = createdBy,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            version = version
+        )
+    }
+
+    private fun TrainingDto.toEntity(cachedAtEpochMillis: Long): TrainingEntity {
+        return TrainingEntity(
+            id = id,
+            title = title,
+            summary = summary,
+            coverImage = coverImage,
+            modules = modules,
+            organization = organization,
+            similar = similar,
+            createdBy = createdBy,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            version = version,
+            cachedAtEpochMillis = cachedAtEpochMillis
+        )
     }
 }

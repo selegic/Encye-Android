@@ -2,6 +2,7 @@ package com.selegic.encye.video
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Share
@@ -30,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,14 +43,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.selegic.encye.data.remote.dto.VideoDto
 import com.selegic.encye.ui.component.CommentsBottomSheet
 
@@ -56,8 +63,71 @@ fun VideoScreen() {
     val viewModel: VideoViewModel = hiltViewModel()
     val videos = viewModel.videos.collectAsLazyPagingItems()
     val itemCount = videos.itemCount
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var showCommentSheet by remember { mutableStateOf(false) }
     var commentTargetVideoId by remember { mutableStateOf<String?>(null) }
+    var playerErrorMessage by remember { mutableStateOf<String?>(null) }
+    var loadedVideoId by remember { mutableStateOf<String?>(null) }
+    var isPausedByUser by remember { mutableStateOf(false) }
+    var shouldResumeOnStart by remember { mutableStateOf(false) }
+    val pausedByUserState = rememberUpdatedState(isPausedByUser)
+    val hasLoadedVideoState = rememberUpdatedState(loadedVideoId != null)
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context)
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        1500, // minBufferMs
+                        5000, // maxBufferMs
+                        250,  // bufferForPlaybackMs
+                        500   // bufferForPlaybackAfterRebufferMs
+                    )
+                    .build()
+            )
+            .build().apply {
+                repeatMode = Player.REPEAT_MODE_ONE
+                playWhenReady = false
+            }
+    }
+
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                playerErrorMessage = "Video unavailable. Swipe to continue."
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, exoPlayer) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    shouldResumeOnStart = exoPlayer.isPlaying && !pausedByUserState.value
+                    exoPlayer.playWhenReady = false
+                    exoPlayer.pause()
+                }
+
+                Lifecycle.Event.ON_START -> {
+                    if (shouldResumeOnStart && !pausedByUserState.value && hasLoadedVideoState.value) {
+                        exoPlayer.playWhenReady = true
+                        exoPlayer.play()
+                    }
+                }
+
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     when {
         videos.loadState.refresh is LoadState.Loading && itemCount == 0 -> {
@@ -110,12 +180,38 @@ fun VideoScreen() {
 
         else -> {
             val pagerState = rememberPagerState(pageCount = { videos.itemCount })
+            val activeVideo = videos[pagerState.currentPage]
+
+            LaunchedEffect(activeVideo?.id, activeVideo?.url) {
+                val url = activeVideo?.url?.trim().orEmpty()
+                if (url.isBlank()) {
+                    exoPlayer.stop()
+                    loadedVideoId = null
+                    playerErrorMessage = "Video unavailable. Swipe to continue."
+                    isPausedByUser = false
+                    return@LaunchedEffect
+                }
+                if (loadedVideoId != activeVideo?.id) {
+                    loadedVideoId = activeVideo?.id
+                    playerErrorMessage = null
+                    isPausedByUser = false
+                    exoPlayer.setMediaItem(MediaItem.fromUri(url))
+                    exoPlayer.prepare()
+                }
+                if (isPausedByUser) {
+                    exoPlayer.playWhenReady = false
+                    exoPlayer.pause()
+                } else {
+                    exoPlayer.playWhenReady = true
+                    exoPlayer.play()
+                }
+            }
 
             VerticalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 key = { index -> videos[index]?.id ?: "video-$index" },
-                beyondViewportPageCount = 1
+                beyondViewportPageCount = 0
             ) { page ->
                 val video = videos[page]
                 if (video == null) {
@@ -131,6 +227,21 @@ fun VideoScreen() {
                     VideoPage(
                         video = video,
                         isActive = pagerState.currentPage == page,
+                        exoPlayer = exoPlayer,
+                        playerErrorMessage = playerErrorMessage,
+                        isPaused = isPausedByUser,
+                        onTogglePause = {
+                            if (pagerState.currentPage == page) {
+                                isPausedByUser = !isPausedByUser
+                                if (isPausedByUser) {
+                                    exoPlayer.playWhenReady = false
+                                    exoPlayer.pause()
+                                } else {
+                                    exoPlayer.playWhenReady = true
+                                    exoPlayer.play()
+                                }
+                            }
+                        },
                         onCommentClick = {
                             commentTargetVideoId = video.mongoId.ifBlank { video.id }
                             showCommentSheet = true
@@ -156,6 +267,10 @@ fun VideoScreen() {
 private fun VideoPage(
     video: VideoDto,
     isActive: Boolean,
+    exoPlayer: ExoPlayer,
+    playerErrorMessage: String?,
+    isPaused: Boolean,
+    onTogglePause: () -> Unit,
     onCommentClick: () -> Unit
 ) {
     Box(
@@ -164,10 +279,43 @@ private fun VideoPage(
             .background(Color.Black)
     ) {
         ShortVideoPlayer(
-            videoUrl = video.url,
             isActive = isActive,
+            exoPlayer = exoPlayer,
+            onTogglePause = onTogglePause,
             modifier = Modifier.fillMaxSize()
         )
+
+        if (isActive && isPaused) {
+            Surface(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.Black.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "Paused",
+                    tint = Color.White,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
+
+        if (isActive && !playerErrorMessage.isNullOrBlank()) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 16.dp),
+                color = Color.Black.copy(alpha = 0.65f),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(
+                    text = playerErrorMessage,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White
+                )
+            }
+        }
 
         Box(
             modifier = Modifier
@@ -209,22 +357,22 @@ private fun VideoPage(
                 }
                 Text(
                     text = video.title?.ifBlank { "Untitled video" } ?: "Untitled video",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = video.description?.ifBlank { "No description available." } ?: "No description available.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.9f),
-                    maxLines = 3,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "@${video.uploadedBy?.take(10) ?: "encye"}",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.92f)
                 )
             }
@@ -257,35 +405,17 @@ private fun VideoPage(
 
 @Composable
 private fun ShortVideoPlayer(
-    videoUrl: String?,
     isActive: Boolean,
+    exoPlayer: ExoPlayer,
+    onTogglePause: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (videoUrl.isNullOrBlank()) {
+    if (!isActive) {
         Box(
             modifier = modifier.background(Color.Black),
             contentAlignment = Alignment.Center
-        ) {
-            Text("Video unavailable", color = Color.White)
-        }
+        ) { }
         return
-    }
-
-    val context = LocalContext.current
-    val exoPlayer = remember(videoUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            repeatMode = Player.REPEAT_MODE_ONE
-            videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-            setMediaItem(MediaItem.fromUri(videoUrl))
-            prepare()
-            playWhenReady = false
-        }
-    }
-
-    DisposableEffect(exoPlayer) {
-        onDispose {
-            exoPlayer.release()
-        }
     }
 
     LaunchedEffect(isActive, exoPlayer) {
@@ -298,7 +428,12 @@ private fun ShortVideoPlayer(
     }
 
     androidx.compose.ui.viewinterop.AndroidView(
-        modifier = modifier,
+        modifier = modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null
+        ) {
+            onTogglePause()
+        },
         factory = { viewContext ->
             PlayerView(viewContext).apply {
                 player = exoPlayer
@@ -307,7 +442,7 @@ private fun ShortVideoPlayer(
             }
         },
         update = { playerView ->
-            playerView.player = exoPlayer
+            playerView.player = if (isActive) exoPlayer else null
         }
     )
 }

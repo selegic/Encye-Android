@@ -410,7 +410,7 @@ private fun TrainingModuleMeta(
 private fun CollapsibleTrainingSummary(
     summary: AnnotatedString,
     modifier: Modifier = Modifier,
-    collapsedMaxLines: Int = 4
+    collapsedMaxLines: Int = 6
 ) {
     var isExpanded by remember(summary) { mutableStateOf(false) }
     var isOverflowing by remember(summary) { mutableStateOf(false) }

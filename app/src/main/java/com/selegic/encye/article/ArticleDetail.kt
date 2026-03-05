@@ -84,7 +84,7 @@ fun ArticleDetailScreen(
     var showCommentSheet by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val showActionBar by remember {
-        derivedStateOf { !scrollState.isScrollInProgress }
+        derivedStateOf { scrollState.lastScrolledBackward  }
     }
 
     LaunchedEffect(articleDto) {
@@ -208,27 +208,27 @@ private fun ArticleActionBar(
                 modifier = Modifier
                     .padding(10.dp)
             ) {
-                clickableItem(
-                    onClick = { },
-                    label = "",
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Bookmark"
-                        )
-                    }
-                )
-//
 //                clickableItem(
-//                    onClick = onCommentClick,
+//                    onClick = { },
 //                    label = "",
 //                    icon = {
 //                        Icon(
-//                            imageVector = Icons.Outlined.ChatBubbleOutline,
-//                            contentDescription = "Comment"
+//                            imageVector = Icons.Outlined.BookmarkBorder,
+//                            contentDescription = "Bookmark"
 //                        )
 //                    }
 //                )
+//
+                clickableItem(
+                    onClick = onCommentClick,
+                    label = "Comments",
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Outlined.ChatBubbleOutline,
+                            contentDescription = "Comment"
+                        )
+                    }
+                )
 //
 //                clickableItem(
 //                    onClick = {

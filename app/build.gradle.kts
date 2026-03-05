@@ -86,6 +86,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.compose)
+    implementation("androidx.media3:media3-exoplayer:1.5.1")
+    implementation("androidx.media3:media3-ui:1.5.1")
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.kotlinx.serialization)

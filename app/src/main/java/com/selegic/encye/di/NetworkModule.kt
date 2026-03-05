@@ -8,6 +8,7 @@ import com.selegic.encye.data.remote.CommentApiService
 import com.selegic.encye.data.remote.PostApiService
 import com.selegic.encye.data.remote.TrainingApiService
 import com.selegic.encye.data.remote.UserApiService
+import com.selegic.encye.data.remote.VideoApiService
 import com.selegic.encye.data.repository.ArticleRepository
 import com.selegic.encye.data.repository.ArticleRepositoryImpl
 import com.selegic.encye.data.repository.CommentRepository
@@ -18,6 +19,8 @@ import com.selegic.encye.data.repository.TrainingRepository
 import com.selegic.encye.data.repository.TrainingRepositoryImpl
 import com.selegic.encye.data.repository.UserRepository
 import com.selegic.encye.data.repository.UserRepositoryImpl
+import com.selegic.encye.data.repository.VideoRepository
+import com.selegic.encye.data.repository.VideoRepositoryImpl
 import com.selegic.encye.util.AuthInterceptor
 import dagger.Module
 import dagger.Provides
@@ -127,5 +130,17 @@ object NetworkModule {
     @Singleton
     fun provideTrainingRepository(trainingApiService: TrainingApiService): TrainingRepository {
         return TrainingRepositoryImpl(trainingApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideVideoApiService(retrofit: Retrofit): VideoApiService {
+        return retrofit.create(VideoApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideVideoRepository(videoApiService: VideoApiService): VideoRepository {
+        return VideoRepositoryImpl(videoApiService)
     }
 }

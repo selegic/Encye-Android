@@ -48,6 +48,7 @@ import com.selegic.encye.training.TrainingModuleDetailScreen
 import com.selegic.encye.training.TrainingScreen
 import com.selegic.encye.ui.theme.EncyeTheme
 import com.selegic.encye.util.SessionManager
+import com.selegic.encye.video.VideoScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
@@ -118,7 +119,7 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                 Home()
                             }
                             entry<AppDestinations.Video> {
-                                Greeting(name = "Video")
+                                VideoScreen()
                             }
                             entry<AppDestinations.Training> {
                                 TrainingScreen(

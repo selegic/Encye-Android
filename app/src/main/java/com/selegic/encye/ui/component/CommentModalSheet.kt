@@ -149,8 +149,8 @@ fun CommentsBottomSheet(
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface,
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-            // Takes up 90% of the screen height when fully expanded
-            modifier = Modifier.fillMaxHeight(0.9f)
+            // Allow full-screen height in expanded state.
+            modifier = Modifier.fillMaxHeight()
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -199,6 +199,7 @@ fun CommentsBottomSheet(
                 } else {
                     SignInToCommentPrompt()
                 }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }

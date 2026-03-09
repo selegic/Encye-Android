@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -50,7 +51,13 @@ fun TextFirstFeedScreen(posts: List<PostDto>) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TextFocusPostCard(post: PostDto, onCommentClick: () -> Unit = {}) {
+fun TextFocusPostCard(
+    post: PostDto,
+    isLiked: Boolean = post.isLiked,
+    likeCount: Int = post.likeCount,
+    onLikeClick: () -> Unit = {},
+    onCommentClick: () -> Unit = {}
+) {
     val authorName = "${post.createdBy.firstName} ${post.createdBy.lastName}"
     val categoryName = post.autoCategory?.primary?.name ?: "Article"
     // Clean up HTML tags and extra whitespace
@@ -190,8 +197,9 @@ fun TextFocusPostCard(post: PostDto, onCommentClick: () -> Unit = {}) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextActionButton(
-                    icon = Icons.Outlined.FavoriteBorder,
-                    label = if (post.likeCount > 0) post.likeCount.toString() else "Like"
+                    icon = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    label = if (likeCount > 0) likeCount.toString() else "Like",
+                    onClick = onLikeClick
                 )
                 TextActionButton(
                     icon = Icons.Outlined.ChatBubbleOutline,

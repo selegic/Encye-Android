@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,16 +32,20 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.selegic.encye.data.remote.dto.PostDto
 import com.selegic.encye.home.viewmodel.HomeViewModel
+import com.selegic.encye.home.viewmodel.PostLikeUiState
 import com.selegic.encye.ui.component.PostCreate
 
 @Composable
 fun Home() {
     val homeViewModel: HomeViewModel = hiltViewModel()
     val posts = homeViewModel.posts.collectAsLazyPagingItems()
+    val postLikeUiState by homeViewModel.postLikeUiState.collectAsState()
 
     HomeScreen(
         posts = posts,
+        postLikeUiState = postLikeUiState,
         onRefresh = { posts.refresh() },
+        onTogglePostLike = homeViewModel::togglePostLike
     )
 }
 
@@ -48,7 +53,9 @@ fun Home() {
 @Composable
 fun HomeScreen(
     posts: LazyPagingItems<PostDto>,
+    postLikeUiState: Map<String, PostLikeUiState>,
     onRefresh: () -> Unit,
+    onTogglePostLike: (PostDto) -> Unit,
 ) {
     var showCommentSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostDto?>(null) }
@@ -93,7 +100,9 @@ fun HomeScreen(
                     posts[index]?.let { post ->
                         TextFocusPostCard(
                             post = post,
-//                        onLikeClick = {},
+                            isLiked = postLikeUiState[post.id]?.isLiked ?: post.isLiked,
+                            likeCount = postLikeUiState[post.id]?.likeCount ?: post.likeCount,
+                            onLikeClick = { onTogglePostLike(post) },
                             onCommentClick = {
                                 selectedPost = post
                                 showCommentSheet = !showCommentSheet

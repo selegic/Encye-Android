@@ -5,6 +5,7 @@ import com.selegic.encye.BuildConfig
 import com.selegic.encye.data.local.AppDatabase
 import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.CommentApiService
+import com.selegic.encye.data.remote.LikeApiService
 import com.selegic.encye.data.remote.PostApiService
 import com.selegic.encye.data.remote.TrainingApiService
 import com.selegic.encye.data.remote.UserApiService
@@ -13,6 +14,8 @@ import com.selegic.encye.data.repository.ArticleRepository
 import com.selegic.encye.data.repository.ArticleRepositoryImpl
 import com.selegic.encye.data.repository.CommentRepository
 import com.selegic.encye.data.repository.CommentRepositoryImpl
+import com.selegic.encye.data.repository.LikeRepository
+import com.selegic.encye.data.repository.LikeRepositoryImpl
 import com.selegic.encye.data.repository.PostRepository
 import com.selegic.encye.data.repository.PostRepositoryImpl
 import com.selegic.encye.data.repository.TrainingRepository
@@ -142,5 +145,17 @@ object NetworkModule {
     @Singleton
     fun provideVideoRepository(videoApiService: VideoApiService): VideoRepository {
         return VideoRepositoryImpl(videoApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLikeApiService(retrofit: Retrofit): LikeApiService {
+        return retrofit.create(LikeApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLikeRepository(likeApiService: LikeApiService): LikeRepository {
+        return LikeRepositoryImpl(likeApiService)
     }
 }

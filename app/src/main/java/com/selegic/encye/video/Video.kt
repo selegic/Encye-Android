@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,7 @@ import com.selegic.encye.ui.component.CommentsBottomSheet
 fun VideoScreen() {
     val viewModel: VideoViewModel = hiltViewModel()
     val videos = viewModel.videos.collectAsLazyPagingItems()
+    val videoLikeUiState by viewModel.videoLikeUiState.collectAsState()
     val itemCount = videos.itemCount
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -226,6 +228,8 @@ fun VideoScreen() {
                 } else {
                     VideoPage(
                         video = video,
+                        resolvedIsLiked = videoLikeUiState[video.mongoId.ifBlank { video.id }]?.isLiked ?: video.isLiked,
+                        resolvedLikeCount = videoLikeUiState[video.mongoId.ifBlank { video.id }]?.likeCount ?: video.likeCount,
                         isActive = pagerState.currentPage == page,
                         exoPlayer = exoPlayer,
                         playerErrorMessage = playerErrorMessage,
@@ -245,7 +249,8 @@ fun VideoScreen() {
                         onCommentClick = {
                             commentTargetVideoId = video.mongoId.ifBlank { video.id }
                             showCommentSheet = true
-                        }
+                        },
+                        onLikeClick = { viewModel.toggleVideoLike(video) }
                     )
                 }
             }
@@ -266,12 +271,15 @@ fun VideoScreen() {
 @Composable
 private fun VideoPage(
     video: VideoDto,
+    resolvedIsLiked: Boolean,
+    resolvedLikeCount: Int,
     isActive: Boolean,
     exoPlayer: ExoPlayer,
     playerErrorMessage: String?,
     isPaused: Boolean,
     onTogglePause: () -> Unit,
-    onCommentClick: () -> Unit
+    onCommentClick: () -> Unit,
+    onLikeClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -383,9 +391,10 @@ private fun VideoPage(
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 VideoStatAction(
-                    icon = if (video.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    label = formatVideoCount(video.likeCount),
-                    tint = if (video.isLiked) Color(0xFFFF5252) else Color.White
+                    icon = if (resolvedIsLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    label = formatVideoCount(resolvedLikeCount),
+                    tint = if (resolvedIsLiked) Color(0xFFFF5252) else Color.White,
+                    onClick = onLikeClick
                 )
                 VideoStatAction(
                     icon = Icons.Outlined.ChatBubbleOutline,

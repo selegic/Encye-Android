@@ -9,5 +9,6 @@ data class CommentDto(
     @SerialName("text") val content: String,
     @SerialName("user") val createdBy: UserDto,
     val createdAt: String,
-    val likeCount: Int = 0
+    val likeCount: Int = 0,
+    val isLiked: Boolean = false
 )

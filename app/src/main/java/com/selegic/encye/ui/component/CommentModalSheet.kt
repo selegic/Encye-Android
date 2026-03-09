@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,17 +28,25 @@ import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import com.selegic.encye.data.remote.dto.CommentDto
 import com.selegic.encye.data.repository.CommentRepository
+import com.selegic.encye.data.repository.LikeRepository
 import com.selegic.encye.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class CommentLikeUiState(
+    val isLiked: Boolean,
+    val likeCount: Int
+)
 
 @HiltViewModel
 class CommentViewModel @Inject constructor(
     private val commentRepository: CommentRepository,
+    private val likeRepository: LikeRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -59,6 +68,9 @@ class CommentViewModel @Inject constructor(
     private val _submissionVersion = MutableStateFlow(0)
     val submissionVersion: StateFlow<Int> = _submissionVersion.asStateFlow()
 
+    private val _commentLikeUiState = MutableStateFlow<Map<String, CommentLikeUiState>>(emptyMap())
+    val commentLikeUiState: StateFlow<Map<String, CommentLikeUiState>> = _commentLikeUiState.asStateFlow()
+
     init {
         viewModelScope.launch {
             _isSignedIn.value = !sessionManager.getAuthToken().isNullOrBlank()
@@ -78,11 +90,18 @@ class CommentViewModel @Inject constructor(
             if (clearExisting) {
                 _comments.value = emptyList()
                 _commentCount.value = 0
+                _commentLikeUiState.value = emptyMap()
             }
             try {
                 val response = commentRepository.getComments(onModel, itemId, 1, 50)
                 _comments.value = response.comments
                 _commentCount.value = response.totalComments
+                _commentLikeUiState.value = response.comments.associate { comment ->
+                    comment.id to CommentLikeUiState(
+                        isLiked = comment.isLiked,
+                        likeCount = comment.likeCount
+                    )
+                }
             } catch (e: Exception) {
                 // Ignore for now
             } finally {
@@ -104,6 +123,12 @@ class CommentViewModel @Inject constructor(
                     response.data?.let { newComment ->
                         _comments.value = listOf(newComment) + _comments.value
                         _commentCount.value += 1
+                        _commentLikeUiState.update {
+                            it + (newComment.id to CommentLikeUiState(
+                                isLiked = newComment.isLiked,
+                                likeCount = newComment.likeCount
+                            ))
+                        }
                     }
                     _submissionVersion.value += 1
                 }
@@ -111,6 +136,46 @@ class CommentViewModel @Inject constructor(
                 // Ignore for now
             } finally {
                 _isSubmitting.value = false
+            }
+        }
+    }
+
+    fun toggleCommentLike(comment: CommentDto) {
+        if (!_isSignedIn.value) return
+
+        viewModelScope.launch {
+            val commentId = comment.id
+            val current = _commentLikeUiState.value[commentId]
+                ?: CommentLikeUiState(isLiked = comment.isLiked, likeCount = comment.likeCount)
+            val optimisticLiked = !current.isLiked
+            val optimisticCount = if (optimisticLiked) {
+                current.likeCount + 1
+            } else {
+                (current.likeCount - 1).coerceAtLeast(0)
+            }
+
+            _commentLikeUiState.update {
+                it + (commentId to CommentLikeUiState(isLiked = optimisticLiked, likeCount = optimisticCount))
+            }
+
+            runCatching {
+                likeRepository.toggleLike(onModel = "Comment", itemId = commentId)
+            }.onSuccess { response ->
+                val correctedCount = if (response.liked == optimisticLiked) {
+                    optimisticCount
+                } else if (response.liked) {
+                    current.likeCount + 1
+                } else {
+                    (current.likeCount - 1).coerceAtLeast(0)
+                }
+
+                _commentLikeUiState.update {
+                    it + (commentId to CommentLikeUiState(isLiked = response.liked, likeCount = correctedCount))
+                }
+            }.onFailure {
+                _commentLikeUiState.update {
+                    it + (commentId to current)
+                }
             }
         }
     }
@@ -136,6 +201,7 @@ fun CommentsBottomSheet(
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val isSignedIn by viewModel.isSignedIn.collectAsState()
     val submissionVersion by viewModel.submissionVersion.collectAsState()
+    val commentLikeUiState by viewModel.commentLikeUiState.collectAsState()
 
     LaunchedEffect(itemId, showSheet) {
         if (showSheet) {
@@ -179,7 +245,12 @@ fun CommentsBottomSheet(
                         }
                     } else {
                         items(comments) { comment ->
-                            CommentItem(comment = comment)
+                            CommentItem(
+                                comment = comment,
+                                isLiked = commentLikeUiState[comment.id]?.isLiked ?: comment.isLiked,
+                                likeCount = commentLikeUiState[comment.id]?.likeCount ?: comment.likeCount,
+                                onLikeClick = { viewModel.toggleCommentLike(comment) }
+                            )
                         }
                     }
                 }
@@ -231,7 +302,12 @@ fun CommentsHeader(commentCount: Int, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun CommentItem(comment: CommentDto) {
+fun CommentItem(
+    comment: CommentDto,
+    isLiked: Boolean = false,
+    likeCount: Int = comment.likeCount,
+    onLikeClick: () -> Unit = {}
+) {
     val authorName = "${comment.createdBy.firstName} ${comment.createdBy.lastName}"
 
     Row(
@@ -308,19 +384,19 @@ fun CommentItem(comment: CommentDto) {
             modifier = Modifier.padding(start = 8.dp)
         ) {
             IconButton(
-                onClick = { /* Handle Like */ },
+                onClick = onLikeClick,
                 modifier = Modifier.size(24.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.FavoriteBorder,
+                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Like Comment",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isLiked) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
-            if (comment.likeCount > 0) {
+            if (likeCount > 0) {
                 Text(
-                    text = comment.likeCount.toString(),
+                    text = likeCount.toString(),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -56,7 +56,8 @@ fun TextFocusPostCard(
     isLiked: Boolean = post.isLiked,
     likeCount: Int = post.likeCount,
     onLikeClick: () -> Unit = {},
-    onCommentClick: () -> Unit = {}
+    onCommentClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     val authorName = "${post.createdBy.firstName} ${post.createdBy.lastName}"
     val categoryName = post.autoCategory?.primary?.name ?: "Article"
@@ -87,6 +88,7 @@ fun TextFocusPostCard(
                     modifier = Modifier
                         .size(44.dp) // Slightly larger avatar to establish authority
                         .clip(CircleShape)
+                        .clickable(onClick = onProfileClick)
                 )
 
                 Column(

@@ -36,7 +36,9 @@ import com.selegic.encye.home.viewmodel.PostLikeUiState
 import com.selegic.encye.ui.component.PostCreate
 
 @Composable
-fun Home() {
+fun Home(
+    onProfileClick: (String?) -> Unit
+) {
     val homeViewModel: HomeViewModel = hiltViewModel()
     val posts = homeViewModel.posts.collectAsLazyPagingItems()
     val postLikeUiState by homeViewModel.postLikeUiState.collectAsState()
@@ -45,7 +47,9 @@ fun Home() {
         posts = posts,
         postLikeUiState = postLikeUiState,
         onRefresh = { posts.refresh() },
-        onTogglePostLike = homeViewModel::togglePostLike
+        onTogglePostLike = homeViewModel::togglePostLike,
+        onProfileClick = { onProfileClick(null) },
+        onPostAuthorClick = onProfileClick
     )
 }
 
@@ -56,6 +60,8 @@ fun HomeScreen(
     postLikeUiState: Map<String, PostLikeUiState>,
     onRefresh: () -> Unit,
     onTogglePostLike: (PostDto) -> Unit,
+    onProfileClick: () -> Unit,
+    onPostAuthorClick: (String) -> Unit,
 ) {
     var showCommentSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostDto?>(null) }
@@ -65,7 +71,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Home") },
                 actions = {
-                    IconButton(onClick = { /* Handle Profile */ }) {
+                    IconButton(onClick = onProfileClick) {
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = "Profile"
@@ -106,7 +112,8 @@ fun HomeScreen(
                             onCommentClick = {
                                 selectedPost = post
                                 showCommentSheet = !showCommentSheet
-                            }
+                            },
+                            onProfileClick = { onPostAuthorClick(post.createdBy.id) }
                         )
                     }
                 }

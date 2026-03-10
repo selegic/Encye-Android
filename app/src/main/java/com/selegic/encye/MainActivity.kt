@@ -47,6 +47,7 @@ import com.selegic.encye.training.TrainingDetailScreen
 import com.selegic.encye.training.TrainingModuleDetailScreen
 import com.selegic.encye.training.TrainingScreen
 import com.selegic.encye.ui.theme.EncyeTheme
+import com.selegic.encye.user.UserProfileRoute
 import com.selegic.encye.util.SessionManager
 import com.selegic.encye.video.VideoScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -116,7 +117,11 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         val entryProvider: (NavKey) -> NavEntry<NavKey> = entryProvider {
                             entry<AppDestinations.Home> {
-                                Home()
+                                Home(
+                                    onProfileClick = { userId ->
+                                        navigator.navigate(AppDestinations.UserProfile(userId))
+                                    }
+                                )
                             }
                             entry<AppDestinations.Video> {
                                 VideoScreen()
@@ -167,6 +172,15 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                     trainingTitle = it.trainingTitle,
                                     module = it.module,
                                     onBack = { navigator.goBack() }
+                                )
+                            }
+                            entry<AppDestinations.UserProfile> {
+                                UserProfileRoute(
+                                    userId = it.userId,
+                                    onBack = { navigator.goBack() },
+                                    onOpenArticle = { article ->
+                                        navigator.navigate(AppDestinations.ArticleDetail(article.id, article))
+                                    }
                                 )
                             }
                         }
@@ -234,6 +248,9 @@ sealed class AppDestinations(val label: String) : NavKey {
         val trainingTitle: String,
         val module: com.selegic.encye.data.remote.dto.TrainingModuleDto
     ) : AppDestinations("Training")
+
+    @Serializable
+    data class UserProfile(val userId: String? = null) : AppDestinations("Profile")
 
     @Serializable
     data object Community : AppDestinations("Community")

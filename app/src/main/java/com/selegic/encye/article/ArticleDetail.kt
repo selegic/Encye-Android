@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -30,26 +31,38 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
@@ -67,21 +80,26 @@ import com.selegic.encye.ui.component.CommentsBottomSheet
 
 private val HashtagSanitizeRegex = Regex("[^A-Za-z0-9]+")
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ArticleDetailScreen(
     articleId: String,
     articleDto: ArticleDto,
+    onBack: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedContentScope: AnimatedContentScope
 ) {
     val articleViewModel: ArticleViewModel = hiltViewModel()
     val article by articleViewModel.article.collectAsState()
+    val actionState by articleViewModel.actionState.collectAsState()
     val resolvedArticleId = articleId.ifBlank { articleDto.id }
     val commentTargetId = article?._id?.ifBlank { null }
         ?: articleDto._id.ifBlank { null }
         ?: resolvedArticleId
     var showCommentSheet by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
     val showActionBar by remember {
         derivedStateOf { scrollState.lastScrolledBackward  }
@@ -97,9 +115,67 @@ fun ArticleDetailScreen(
         }
     }
 
+    LaunchedEffect(actionState.deleteSucceeded) {
+        if (actionState.deleteSucceeded) {
+            articleViewModel.clearActionMessage()
+            onBack()
+        }
+    }
+
+    LaunchedEffect(actionState.errorMessage) {
+        actionState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            articleViewModel.clearActionMessage()
+        }
+    }
+
     val isTransitionRunning = animatedContentScope.transition.isRunning
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Article") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(
+                            onClick = { showMoreMenu = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = "More actions"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismissRequest = { showMoreMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Delete article") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Delete,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMoreMenu = false
+                                    showDeleteConfirmation = true
+                                }
+                            )
+                        }
+                    }
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             AnimatedVisibility(
                 visible = showActionBar,
@@ -175,6 +251,45 @@ fun ArticleDetailScreen(
                 showSheet = true,
                 onDismiss = { showCommentSheet = false },
                 currentUserAvatar = null
+            )
+        }
+
+        if (showDeleteConfirmation) {
+            AlertDialog(
+                onDismissRequest = {
+                    if (!actionState.isDeleting) {
+                        showDeleteConfirmation = false
+                    }
+                },
+                title = { Text("Delete article?") },
+                text = {
+                    Text("This will permanently remove the article.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val deleteId = article?._id
+                                ?.ifBlank { null }
+                                ?: articleDto._id.ifBlank { null }
+                                ?: resolvedArticleId
+                            articleViewModel.deleteArticle(deleteId)
+                            if (!actionState.isDeleting) {
+                                showDeleteConfirmation = false
+                            }
+                        },
+                        enabled = !actionState.isDeleting
+                    ) {
+                        Text(if (actionState.isDeleting) "Deleting..." else "Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDeleteConfirmation = false },
+                        enabled = !actionState.isDeleting
+                    ) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
     }
@@ -381,6 +496,19 @@ fun HtmlWebView(html: String, modifier: Modifier = Modifier) {
             img, table {
                 max-width: 100%;
                 height: auto;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                margin: 16px 0;
+                display: block;
+                overflow-x: auto;
+            }
+            td, th {
+                border: 1px solid #d0d0d0;
+                padding: 8px 10px;
+                vertical-align: top;
             }
             ul {
                 padding-left: 20px; 

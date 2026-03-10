@@ -35,6 +35,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
+import com.selegic.encye.article.ArticleComposerRoute
 import com.selegic.encye.article.ArticleDetailScreen
 import com.selegic.encye.article.ArticleScreen
 import com.selegic.encye.data.remote.dto.ArticleDto
@@ -138,6 +139,9 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                     onNavigateToArticleDetail = { it: ArticleDto ->
                                         navigator.navigate(AppDestinations.ArticleDetail(it.id, it))
                                     },
+                                    onCreateArticle = {
+                                        navigator.navigate(AppDestinations.ArticleComposer)
+                                    },
                                     sharedTransitionScope = this@SharedTransitionLayout,
                                     animatedContentScope = LocalNavAnimatedContentScope.current,
                                 )
@@ -149,8 +153,14 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                 ArticleDetailScreen(
                                     articleId = it.id,
                                     articleDto = it.dto,
+                                    onBack = { navigator.goBack() },
                                     sharedTransitionScope = this@SharedTransitionLayout,
                                     animatedContentScope = LocalNavAnimatedContentScope.current
+                                )
+                            }
+                            entry<AppDestinations.ArticleComposer> {
+                                ArticleComposerRoute(
+                                    onBack = { navigator.goBack() }
                                 )
                             }
                             entry<AppDestinations.TrainingDetail> {
@@ -236,6 +246,9 @@ sealed class AppDestinations(val label: String) : NavKey {
 
     @Serializable
     data object Article : AppDestinations("Article")
+
+    @Serializable
+    data object ArticleComposer : AppDestinations("Article")
 
     @Serializable
     data class ArticleDetail(val id: String, val dto: ArticleDto) : AppDestinations("Article")

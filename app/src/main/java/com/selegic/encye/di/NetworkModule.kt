@@ -4,7 +4,9 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import com.selegic.encye.BuildConfig
 import com.selegic.encye.data.local.AppDatabase
 import com.selegic.encye.data.remote.ArticleApiService
+import com.selegic.encye.data.remote.CategoryApiService
 import com.selegic.encye.data.remote.CommentApiService
+import com.selegic.encye.data.remote.ImageApiService
 import com.selegic.encye.data.remote.LikeApiService
 import com.selegic.encye.data.remote.PostApiService
 import com.selegic.encye.data.remote.TrainingApiService
@@ -12,8 +14,12 @@ import com.selegic.encye.data.remote.UserApiService
 import com.selegic.encye.data.remote.VideoApiService
 import com.selegic.encye.data.repository.ArticleRepository
 import com.selegic.encye.data.repository.ArticleRepositoryImpl
+import com.selegic.encye.data.repository.CategoryRepository
+import com.selegic.encye.data.repository.CategoryRepositoryImpl
 import com.selegic.encye.data.repository.CommentRepository
 import com.selegic.encye.data.repository.CommentRepositoryImpl
+import com.selegic.encye.data.repository.ImageRepository
+import com.selegic.encye.data.repository.ImageRepositoryImpl
 import com.selegic.encye.data.repository.LikeRepository
 import com.selegic.encye.data.repository.LikeRepositoryImpl
 import com.selegic.encye.data.repository.PostRepository
@@ -109,6 +115,30 @@ object NetworkModule {
     @Singleton
     fun providePostRepository(postApiService: PostApiService): PostRepository {
         return PostRepositoryImpl(postApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideImageApiService(retrofit: Retrofit): ImageApiService {
+        return retrofit.create(ImageApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideImageRepository(imageApiService: ImageApiService): ImageRepository {
+        return ImageRepositoryImpl(imageApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCategoryApiService(retrofit: Retrofit): CategoryApiService {
+        return retrofit.create(CategoryApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCategoryRepository(categoryApiService: CategoryApiService): CategoryRepository {
+        return CategoryRepositoryImpl(categoryApiService)
     }
 
     @Provides

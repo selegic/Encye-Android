@@ -16,12 +16,17 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,13 +62,16 @@ fun TextFocusPostCard(
     likeCount: Int = post.likeCount,
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    onOptionsClick: () -> Unit = {}
 ) {
     val authorName = "${post.createdBy.firstName} ${post.createdBy.lastName}"
     val categoryName = post.autoCategory?.primary?.name ?: "Article"
     // Clean up HTML tags and extra whitespace
     val plainTextContent = Html.fromHtml(post.content, Html.FROM_HTML_MODE_COMPACT).toString().trim()
     val formattedDate = formatDate(post.createdAt)
+    val canExpand = plainTextContent.length > 220
+    var isExpanded by remember(post.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -74,7 +82,7 @@ fun TextFocusPostCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
+                .padding(top = 12.dp, start = 14.dp, end = 14.dp, bottom = 6.dp)
         ) {
             // 1. Publisher Header
             Row(
@@ -86,7 +94,7 @@ fun TextFocusPostCard(
                     contentDescription = "Author Avatar",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(44.dp) // Slightly larger avatar to establish authority
+                        .size(38.dp)
                         .clip(CircleShape)
                         .clickable(onClick = onProfileClick)
                 )
@@ -98,19 +106,20 @@ fun TextFocusPostCard(
                 ) {
                     Text(
                         text = authorName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    // Context string: "Technology • Feb 16"
                     Text(
                         text = "$categoryName • $formattedDate",
-                        fontSize = 13.sp,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                IconButton(onClick = onCommentClick) {
+                IconButton(onClick = onOptionsClick) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "Options",
@@ -119,58 +128,59 @@ fun TextFocusPostCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 2. The Main Focus: The Writing
             Text(
                 text = plainTextContent,
-                fontSize = 16.sp,
-                lineHeight = 24.sp, // Generous line height for readability
+                fontFamily = FontFamily.Serif,
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
                 fontWeight = FontWeight.Normal,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
-                maxLines = 6, // Show much more text before truncating
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable(onClick = onCommentClick)
+                maxLines = if (isExpanded) Int.MAX_VALUE else 4,
+                overflow = TextOverflow.Ellipsis
             )
 
-            // Optional "Read more" if text is long
-            if (plainTextContent.length > 250) {
+            if (canExpand) {
                 Text(
-                    text = "Read more",
-                    fontSize = 15.sp,
+                    text = if (isExpanded) "Show less" else "Read more",
+                    fontFamily = FontFamily.SansSerif,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .padding(top = 4.dp)
-                        .clickable(onClick = onCommentClick)
+                        .clickable(onClick = { isExpanded = !isExpanded })
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 3. Topic Tags (Highlights what the writing is about)
             if (post.autoTags.isNotEmpty()) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    post.autoTags.take(4).forEach { tag ->
+                    post.autoTags.take(3).forEach { tag ->
                         Surface(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(14.dp),
                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                         ) {
                             Text(
                                 text = "#${tag.replaceFirstChar { it.uppercase() }}",
-                                fontSize = 12.sp,
+                                fontFamily = FontFamily.SansSerif,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // 4. Secondary Focus: The Image Attachment
@@ -186,7 +196,7 @@ fun TextFocusPostCard(
                         .clip(RoundedCornerShape(12.dp)) // Rounded corners make it look like an embedded attachment
                         .background(Color.LightGray)
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -195,7 +205,7 @@ fun TextFocusPostCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp),
+                    .padding(top = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextActionButton(
@@ -225,18 +235,19 @@ fun TextActionButton(
 ) {
     TextButton(
         onClick = onClick,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontFamily = FontFamily.SansSerif,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

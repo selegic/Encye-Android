@@ -90,8 +90,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp) // Generous spacing between cards
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
                     PostCreate(
@@ -111,7 +111,7 @@ fun HomeScreen(
                             onLikeClick = { onTogglePostLike(post) },
                             onCommentClick = {
                                 selectedPost = post
-                                showCommentSheet = !showCommentSheet
+                                showCommentSheet = true
                             },
                             onProfileClick = { onPostAuthorClick(post.createdBy.id) }
                         )

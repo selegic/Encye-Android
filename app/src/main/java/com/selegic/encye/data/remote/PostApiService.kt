@@ -7,7 +7,7 @@ import retrofit2.http.Query
 
 interface PostApiService {
 
-    @GET("api/v1/post/all")
+    @GET("api/v1/post/org/all")
     suspend fun getPosts(
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10

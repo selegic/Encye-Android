@@ -43,11 +43,13 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -90,8 +92,20 @@ fun ArticleScreen(
 ) {
     val viewModel: ArticleViewModel = hiltViewModel()
     val articles = viewModel.articles.collectAsLazyPagingItems()
-    var selectedCategory by remember { mutableStateOf("For You") }
-    val categories = listOf("For You", "Technology", "Global", "Economy", "Science", "Health")
+    val filteredArticlesState by viewModel.filteredArticlesState.collectAsState()
+    val articleTags = articles.itemSnapshotList.items
+        .mapNotNull { article -> article.autoCategory?.primary?.name?.trim()?.takeIf { it.isNotEmpty() } }
+        .distinct()
+    val categories = listOf("All") + articleTags
+    var selectedCategory by remember { mutableStateOf("All") }
+    val isAllSelected = selectedCategory == "All"
+    val visibleArticles = remember(articles.itemSnapshotList.items, filteredArticlesState.articles, isAllSelected) {
+        if (selectedCategory == "All") {
+            articles.itemSnapshotList.items
+        } else {
+            filteredArticlesState.articles
+        }
+    }
 
     // Scroll-direction tracking: positive = scrolling down, negative = scrolling up
     var scrollDelta by remember { mutableFloatStateOf(0f) }
@@ -134,7 +148,7 @@ fun ArticleScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${articles.itemCount} stories ready",
+                            text = "${visibleArticles.size} stories ready",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -209,7 +223,10 @@ fun ArticleScreen(
                     items(categories) { category ->
                         FilterChip(
                             selected = selectedCategory == category,
-                            onClick = { selectedCategory = category },
+                            onClick = {
+                                selectedCategory = category
+                                viewModel.selectCategory(category)
+                            },
                             label = {
                                 Text(
                                     category,
@@ -242,50 +259,102 @@ fun ArticleScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "${articles.itemCount} results",
+                        text = "${visibleArticles.size} results",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            items(articles.itemCount) { index ->
-                articles[index]?.let { articleDto ->
-                    ArticleCard(article = articleDto, onCLick = {
-                        onNavigateToArticleDetail(articleDto)
-                    }, sharedTransitionScope = sharedTransitionScope, animatedContentScope = animatedContentScope)
-                }
+            items(visibleArticles, key = { article -> article.id }) { articleDto ->
+                ArticleCard(article = articleDto, onCLick = {
+                    onNavigateToArticleDetail(articleDto)
+                }, sharedTransitionScope = sharedTransitionScope, animatedContentScope = animatedContentScope)
             }
 
-            articles.apply {
-                when {
-                    loadState.refresh is LoadState.Loading -> {
-                        item {
-                            Box(modifier = Modifier.fillParentMaxSize()) {
-                                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            if (isAllSelected) {
+                articles.apply {
+                    when {
+                        loadState.refresh is LoadState.Loading -> {
+                            item {
+                                Box(modifier = Modifier.fillParentMaxSize()) {
+                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                                }
+                            }
+                        }
+
+                        loadState.append is LoadState.Loading -> {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                                }
+                            }
+                        }
+
+                        loadState.refresh is LoadState.Error -> {
+                            val e = articles.loadState.refresh as LoadState.Error
+                            item {
+                                Text(text = "Error: ${e.error.localizedMessage}")
+                            }
+                        }
+
+                        loadState.append is LoadState.Error -> {
+                            val e = articles.loadState.append as LoadState.Error
+                            item {
+                                Text(text = "Error: ${e.error.localizedMessage}")
                             }
                         }
                     }
+                }
+            } else {
+                if (filteredArticlesState.isLoading && visibleArticles.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillParentMaxSize()) {
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        }
+                    }
+                }
 
-                    loadState.append is LoadState.Loading -> {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                filteredArticlesState.errorMessage?.let { message ->
+                    item {
+                        Text(
+                            text = "Error: $message",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
+
+                if (!filteredArticlesState.isLoading && visibleArticles.isEmpty() && filteredArticlesState.errorMessage == null) {
+                    item {
+                        Text(
+                            text = "No loaded articles match yet. Load more to continue searching.",
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (filteredArticlesState.hasMore) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Button(
+                                onClick = { viewModel.loadMoreFilteredArticles() },
+                                enabled = !filteredArticlesState.isLoading
+                            ) {
+                                if (filteredArticlesState.isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("Load more articles")
+                                }
                             }
-                        }
-                    }
-
-                    loadState.refresh is LoadState.Error -> {
-                        val e = articles.loadState.refresh as LoadState.Error
-                        item {
-                            Text(text = "Error: ${e.error.localizedMessage}")
-                        }
-                    }
-
-                    loadState.append is LoadState.Error -> {
-                        val e = articles.loadState.append as LoadState.Error
-                        item {
-                            Text(text = "Error: ${e.error.localizedMessage}")
                         }
                     }
                 }

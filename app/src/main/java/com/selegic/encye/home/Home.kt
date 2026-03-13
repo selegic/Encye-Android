@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +47,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -95,6 +97,9 @@ fun Home(
         onComposerImagesChange = homeViewModel::setComposerImages,
         onRemoveComposerImage = homeViewModel::removeComposerImage,
         onSubmitPost = homeViewModel::submitPost,
+        onEditPost = homeViewModel::startEditingPost,
+        onDeletePost = homeViewModel::deletePost,
+        onResetComposer = homeViewModel::resetComposer,
         onClearComposerFeedback = homeViewModel::clearComposerFeedback,
         onProfileClick = { onProfileClick(null) },
         onPostAuthorClick = onProfileClick
@@ -113,6 +118,9 @@ fun HomeScreen(
     onComposerImagesChange: (List<SelectedComposerImage>) -> Unit,
     onRemoveComposerImage: (Int) -> Unit,
     onSubmitPost: () -> Unit,
+    onEditPost: (PostDto) -> Unit,
+    onDeletePost: (String) -> Unit,
+    onResetComposer: () -> Unit,
     onClearComposerFeedback: () -> Unit,
     onProfileClick: () -> Unit,
     onPostAuthorClick: (String) -> Unit,
@@ -120,6 +128,7 @@ fun HomeScreen(
     var showCommentSheet by remember { mutableStateOf(false) }
     var selectedPost by remember { mutableStateOf<PostDto?>(null) }
     var showComposerSheet by remember { mutableStateOf(false) }
+    var postPendingDelete by remember { mutableStateOf<PostDto?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val selectedUris = remember { mutableStateListOf<Uri>() }
@@ -150,6 +159,7 @@ fun HomeScreen(
             snackbarHostState.showSnackbar(message)
             showComposerSheet = false
             selectedUris.clear()
+            onResetComposer()
             onClearComposerFeedback()
             posts.refresh()
         }
@@ -197,7 +207,11 @@ fun HomeScreen(
                         userAvatarUrl = composerUiState.currentUserAvatarUrl,
                         attachmentCount = composerUiState.selectedImages.size,
                         isSubmitting = composerUiState.isSubmitting,
-                        onPostClick = { showComposerSheet = true },
+                        onPostClick = {
+                            onResetComposer()
+                            selectedUris.clear()
+                            showComposerSheet = true
+                        },
                         onPhotoClick = { imagePicker.launch("image/*") }
                     )
                 }
@@ -212,10 +226,41 @@ fun HomeScreen(
                                 selectedPost = post
                                 showCommentSheet = true
                             },
-                            onProfileClick = { onPostAuthorClick(post.createdBy.id) }
+                            onProfileClick = { onPostAuthorClick(post.createdBy.id) },
+                            canManagePost = composerUiState.currentUserId == post.createdBy.id,
+                            onEditClick = {
+                                onEditPost(post)
+                                selectedUris.clear()
+                                showComposerSheet = true
+                            },
+                            onDeleteClick = {
+                                postPendingDelete = post
+                            }
                         )
                     }
                 }
+            }
+            if (postPendingDelete != null) {
+                AlertDialog(
+                    onDismissRequest = { postPendingDelete = null },
+                    title = { Text("Delete post") },
+                    text = { Text("This will permanently remove the post from the feed.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onDeletePost(postPendingDelete!!.id)
+                                postPendingDelete = null
+                            }
+                        ) {
+                            Text("Delete")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { postPendingDelete = null }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
             if (showCommentSheet && selectedPost != null) {
                 CommentsBottomSheet(
@@ -232,6 +277,8 @@ fun HomeScreen(
                     selectedUris = selectedUris,
                     onDismiss = {
                         if (!composerUiState.isSubmitting) {
+                            onResetComposer()
+                            selectedUris.clear()
                             showComposerSheet = false
                         }
                     },
@@ -300,7 +347,7 @@ private fun CreatePostBottomSheet(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Create post",
+                        text = if (uiState.editingPostId != null) "Edit post" else "Create post",
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
@@ -397,7 +444,15 @@ private fun CreatePostBottomSheet(
                 FilterChip(
                     selected = false,
                     onClick = { },
-                    label = { Text("Posting as ${uiState.currentUserName}") }
+                    label = {
+                        Text(
+                            if (uiState.editingPostId != null) {
+                                "Updating as ${uiState.currentUserName}"
+                            } else {
+                                "Posting as ${uiState.currentUserName}"
+                            }
+                        )
+                    }
                 )
             }
 
@@ -434,7 +489,13 @@ private fun CreatePostBottomSheet(
                     contentDescription = null
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (uiState.isSubmitting) "Posting..." else "Post to feed")
+                Text(
+                    if (uiState.isSubmitting) {
+                        if (uiState.editingPostId != null) "Saving..." else "Posting..."
+                    } else {
+                        if (uiState.editingPostId != null) "Save changes" else "Post to feed"
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))

@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -63,7 +65,9 @@ fun TextFocusPostCard(
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onOptionsClick: () -> Unit = {}
+    canManagePost: Boolean = false,
+    onEditClick: () -> Unit = {},
+    onDeleteClick: () -> Unit = {}
 ) {
     val authorName = "${post.createdBy.firstName} ${post.createdBy.lastName}"
     val categoryName = post.autoCategory?.primary?.name ?: "Article"
@@ -72,6 +76,7 @@ fun TextFocusPostCard(
     val formattedDate = formatDate(post.createdAt)
     val canExpand = plainTextContent.length > 220
     var isExpanded by remember(post.id) { mutableStateOf(false) }
+    var showMenu by remember(post.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -119,12 +124,52 @@ fun TextFocusPostCard(
                     )
                 }
 
-                IconButton(onClick = onOptionsClick) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        if (canManagePost) {
+                            DropdownMenuItem(
+                                text = { Text("Edit post") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onEditClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete post") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onDeleteClick()
+                                }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("No actions available") },
+                                onClick = { showMenu = false }
+                            )
+                        }
+                    }
                 }
             }
 

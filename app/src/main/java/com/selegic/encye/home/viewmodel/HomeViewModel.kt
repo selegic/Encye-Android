@@ -37,10 +37,12 @@ data class SelectedComposerImage(
 )
 
 data class HomeComposerUiState(
+    val currentUserId: String? = null,
     val currentUserName: String = "Share with your network",
     val currentUserAvatarUrl: String? = null,
     val draftContent: String = "",
     val selectedImages: List<SelectedComposerImage> = emptyList(),
+    val editingPostId: String? = null,
     val isLoadingProfile: Boolean = false,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
@@ -113,6 +115,35 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun startEditingPost(post: PostDto) {
+        val plainTextContent = android.text.Html.fromHtml(
+            post.content,
+            android.text.Html.FROM_HTML_MODE_COMPACT
+        ).toString().trim()
+
+        _composerUiState.update {
+            it.copy(
+                draftContent = plainTextContent,
+                selectedImages = emptyList(),
+                editingPostId = post.id,
+                errorMessage = null,
+                successMessage = null
+            )
+        }
+    }
+
+    fun resetComposer() {
+        _composerUiState.update {
+            it.copy(
+                draftContent = "",
+                selectedImages = emptyList(),
+                editingPostId = null,
+                errorMessage = null,
+                successMessage = null
+            )
+        }
+    }
+
     fun submitPost() {
         val state = _composerUiState.value
         if (state.isSubmitting) {
@@ -130,7 +161,7 @@ class HomeViewModel @Inject constructor(
 
         Log.d(
             TAG,
-            "submitPost starting: contentLength=${state.draftContent.length}, imageCount=${state.selectedImages.size}"
+            "submitPost starting: editing=${state.editingPostId != null}, contentLength=${state.draftContent.length}, imageCount=${state.selectedImages.size}"
         )
 
         viewModelScope.launch {
@@ -143,10 +174,18 @@ class HomeViewModel @Inject constructor(
             }
 
             runCatching {
-                postRepository.createPost(
-                    content = state.draftContent.trim().ifBlank { null },
-                    images = state.selectedImages.map { image -> image.file }
-                )
+                if (state.editingPostId != null) {
+                    postRepository.updatePost(
+                        id = state.editingPostId,
+                        content = state.draftContent.trim().ifBlank { null },
+                        images = state.selectedImages.map { image -> image.file }
+                    )
+                } else {
+                    postRepository.createPost(
+                        content = state.draftContent.trim().ifBlank { null },
+                        images = state.selectedImages.map { image -> image.file }
+                    )
+                }
             }.onSuccess { response ->
                 Log.d(TAG, "submitPost response: success=${response.success}, message=${response.msg}")
                 _composerUiState.update {
@@ -154,8 +193,11 @@ class HomeViewModel @Inject constructor(
                         it.copy(
                             draftContent = "",
                             selectedImages = emptyList(),
+                            editingPostId = null,
                             isSubmitting = false,
-                            successMessage = response.msg.ifBlank { "Post created" }
+                            successMessage = response.msg.ifBlank {
+                                if (state.editingPostId != null) "Post updated" else "Post created"
+                            }
                         )
                     } else {
                         it.copy(
@@ -170,6 +212,42 @@ class HomeViewModel @Inject constructor(
                     it.copy(
                         isSubmitting = false,
                         errorMessage = error.message ?: "Unable to create post"
+                    )
+                }
+            }
+        }
+    }
+
+    fun deletePost(postId: String) {
+        viewModelScope.launch {
+            Log.d(TAG, "deletePost starting: id=$postId")
+            _composerUiState.update {
+                it.copy(
+                    errorMessage = null,
+                    successMessage = null
+                )
+            }
+
+            runCatching {
+                postRepository.deletePost(postId)
+            }.onSuccess { response ->
+                Log.d(TAG, "deletePost response: success=${response.success}, message=${response.msg}")
+                _composerUiState.update {
+                    if (response.success) {
+                        it.copy(
+                            successMessage = response.msg.ifBlank { "Post deleted" }
+                        )
+                    } else {
+                        it.copy(
+                            errorMessage = response.msg.ifBlank { "Unable to delete post" }
+                        )
+                    }
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "deletePost failed", error)
+                _composerUiState.update {
+                    it.copy(
+                        errorMessage = error.message ?: "Unable to delete post"
                     )
                 }
             }
@@ -226,9 +304,11 @@ class HomeViewModel @Inject constructor(
 
             val userId = sessionManager.getCurrentUserId()
             if (userId.isNullOrBlank()) {
-                _composerUiState.update { it.copy(isLoadingProfile = false) }
+                _composerUiState.update { it.copy(currentUserId = null, isLoadingProfile = false) }
                 return@launch
             }
+
+            _composerUiState.update { it.copy(currentUserId = userId) }
 
             runCatching {
                 userRepository.getProfileById(userId).data.userDetails
@@ -245,6 +325,7 @@ class HomeViewModel @Inject constructor(
 
                 _composerUiState.update {
                     it.copy(
+                        currentUserId = userId,
                         isLoadingProfile = false,
                         currentUserName = displayName,
                         currentUserAvatarUrl = user.profilePicture

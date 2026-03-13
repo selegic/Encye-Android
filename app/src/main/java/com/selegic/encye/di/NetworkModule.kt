@@ -6,6 +6,7 @@ import com.selegic.encye.data.local.AppDatabase
 import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.CategoryApiService
 import com.selegic.encye.data.remote.CommentApiService
+import com.selegic.encye.data.remote.CommunityApiService
 import com.selegic.encye.data.remote.ImageApiService
 import com.selegic.encye.data.remote.LikeApiService
 import com.selegic.encye.data.remote.PostApiService
@@ -18,6 +19,8 @@ import com.selegic.encye.data.repository.CategoryRepository
 import com.selegic.encye.data.repository.CategoryRepositoryImpl
 import com.selegic.encye.data.repository.CommentRepository
 import com.selegic.encye.data.repository.CommentRepositoryImpl
+import com.selegic.encye.data.repository.CommunityRepository
+import com.selegic.encye.data.repository.CommunityRepositoryImpl
 import com.selegic.encye.data.repository.ImageRepository
 import com.selegic.encye.data.repository.ImageRepositoryImpl
 import com.selegic.encye.data.repository.LikeRepository
@@ -151,6 +154,18 @@ object NetworkModule {
     @Singleton
     fun provideCommentRepository(commentApiService: CommentApiService): CommentRepository {
         return CommentRepositoryImpl(commentApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCommunityApiService(retrofit: Retrofit): CommunityApiService {
+        return retrofit.create(CommunityApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCommunityRepository(communityApiService: CommunityApiService): CommunityRepository {
+        return CommunityRepositoryImpl(communityApiService)
     }
 
     @Provides

@@ -17,16 +17,65 @@ import javax.inject.Inject
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "session")
 
+data class CachedUserProfile(
+    val firstName: String? = null,
+    val lastName: String? = null,
+    val profilePicture: String? = null
+) {
+    val displayName: String
+        get() = listOfNotNull(firstName, lastName)
+            .joinToString(" ")
+            .ifBlank { "You" }
+}
+
 class SessionManager @Inject constructor(@ApplicationContext private val context: Context) {
 
     companion object {
         private val AUTH_TOKEN = stringPreferencesKey("auth_token")
+        private val FIRST_NAME = stringPreferencesKey("first_name")
+        private val LAST_NAME = stringPreferencesKey("last_name")
+        private val PROFILE_PICTURE = stringPreferencesKey("profile_picture")
     }
 
     suspend fun saveAuthToken(token: String) {
         context.dataStore.edit {
             it[AUTH_TOKEN] = token
         }
+    }
+
+    suspend fun saveCachedUserProfile(
+        firstName: String?,
+        lastName: String?,
+        profilePicture: String?
+    ) {
+        context.dataStore.edit {
+            if (firstName.isNullOrBlank()) {
+                it.remove(FIRST_NAME)
+            } else {
+                it[FIRST_NAME] = firstName
+            }
+
+            if (lastName.isNullOrBlank()) {
+                it.remove(LAST_NAME)
+            } else {
+                it[LAST_NAME] = lastName
+            }
+
+            if (profilePicture.isNullOrBlank()) {
+                it.remove(PROFILE_PICTURE)
+            } else {
+                it[PROFILE_PICTURE] = profilePicture
+            }
+        }
+    }
+
+    suspend fun getCachedUserProfile(): CachedUserProfile {
+        val preferences = context.dataStore.data.first()
+        return CachedUserProfile(
+            firstName = preferences[FIRST_NAME],
+            lastName = preferences[LAST_NAME],
+            profilePicture = preferences[PROFILE_PICTURE]
+        )
     }
 
     suspend fun getAuthToken(): String? {

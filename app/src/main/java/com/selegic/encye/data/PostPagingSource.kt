@@ -13,7 +13,7 @@ class PostPagingSource @Inject constructor(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, PostDto> {
         val page = params.key ?: 1
         return try {
-            val response = apiService.getPosts(
+            val response = apiService.getOrganizationPosts(
                 page = page,
                 limit = params.loadSize
             )

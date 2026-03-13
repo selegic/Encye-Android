@@ -1,7 +1,6 @@
 package com.selegic.encye.article
 
 import android.content.Context
-import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -52,8 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.selegic.encye.util.copyUriToCacheFile
 import org.json.JSONObject
-import java.io.File
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -505,25 +504,4 @@ private fun parseJsStringResult(result: String?): String {
     }.getOrElse {
         result.removePrefix("\"").removeSuffix("\"")
     }
-}
-
-private fun copyUriToCacheFile(
-    context: Context,
-    uri: Uri,
-    prefix: String
-): File? {
-    val extension = context.contentResolver.getType(uri)
-        ?.substringAfterLast('/', "")
-        ?.takeIf { it.isNotBlank() }
-        ?: "tmp"
-    val tempFile = File.createTempFile(prefix, ".$extension", context.cacheDir)
-
-    return runCatching {
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            tempFile.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        tempFile
-    }.getOrNull()
 }

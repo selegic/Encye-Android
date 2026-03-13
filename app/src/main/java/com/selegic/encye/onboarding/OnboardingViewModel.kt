@@ -35,8 +35,12 @@ class OnboardingViewModel @Inject constructor(
                 val response = userRepository.googleAuthCallback(code)
                 val data = response.data
                 if (data != null) {
-                    // Save the token locally
                     sessionManager.saveAuthToken(data.token)
+                    sessionManager.saveCachedUserProfile(
+                        firstName = data.firstName,
+                        lastName = data.lastName,
+                        profilePicture = null
+                    )
                     _uiState.value = OnboardingUiState.Success(isNewUser = data.new)
                 } else {
                     _uiState.value = OnboardingUiState.Error("Invalid response from server")
@@ -61,6 +65,11 @@ class OnboardingViewModel @Inject constructor(
                 val data = response.data
                 if (data != null) {
                     sessionManager.saveAuthToken(data.token)
+                    sessionManager.saveCachedUserProfile(
+                        firstName = firstName ?: data.firstName,
+                        lastName = lastName ?: data.lastName,
+                        profilePicture = profilePicture
+                    )
                     _uiState.value = OnboardingUiState.Success(isNewUser = data.new)
                 } else {
                     _uiState.value = OnboardingUiState.Error("Invalid response from server")

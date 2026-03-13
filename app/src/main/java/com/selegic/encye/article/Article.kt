@@ -2,7 +2,6 @@ package com.selegic.encye.article
 
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -73,11 +72,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.navigation3.ui.LocalNavAnimatedContentScope
+import androidx.paging.CombinedLoadStates
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil3.compose.AsyncImage
+import com.selegic.encye.data.remote.dto.AutoCategoryDto
 import com.selegic.encye.data.remote.dto.ArticleDto
+import com.selegic.encye.data.remote.dto.CategoryDto
+import com.selegic.encye.data.remote.dto.ImageDto
+import com.selegic.encye.data.remote.dto.UserDto
+import com.selegic.encye.ui.theme.EncyeTheme
 
 private val HtmlTagRegex = Regex("<[^>]*>")
 private val HtmlWhitespaceRegex = Regex("\\s+")
@@ -93,18 +97,46 @@ fun ArticleScreen(
     val viewModel: ArticleViewModel = hiltViewModel()
     val articles = viewModel.articles.collectAsLazyPagingItems()
     val filteredArticlesState by viewModel.filteredArticlesState.collectAsState()
-    val articleTags = articles.itemSnapshotList.items
+    var selectedCategory by remember { mutableStateOf("All") }
+
+    ArticleScreenContent(
+        allArticles = articles.itemSnapshotList.items,
+        filteredArticlesState = filteredArticlesState,
+        selectedCategory = selectedCategory,
+        onCategorySelected = { category ->
+            selectedCategory = category
+            viewModel.selectCategory(category)
+        },
+        onLoadMoreFilteredArticles = viewModel::loadMoreFilteredArticles,
+        onNavigateToArticleDetail = onNavigateToArticleDetail,
+        onCreateArticle = onCreateArticle,
+        sharedTransitionScope = sharedTransitionScope,
+        animatedContentScope = animatedContentScope,
+        pagingLoadState = articles.loadState
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ArticleScreenContent(
+    allArticles: List<ArticleDto>,
+    filteredArticlesState: FilteredArticlesUiState,
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit,
+    onLoadMoreFilteredArticles: () -> Unit,
+    onNavigateToArticleDetail: (ArticleDto) -> Unit,
+    onCreateArticle: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedContentScope: AnimatedContentScope? = null,
+    pagingLoadState: CombinedLoadStates? = null
+) {
+    val articleTags = allArticles
         .mapNotNull { article -> article.autoCategory?.primary?.name?.trim()?.takeIf { it.isNotEmpty() } }
         .distinct()
     val categories = listOf("All") + articleTags
-    var selectedCategory by remember { mutableStateOf("All") }
     val isAllSelected = selectedCategory == "All"
-    val visibleArticles = remember(articles.itemSnapshotList.items, filteredArticlesState.articles, isAllSelected) {
-        if (selectedCategory == "All") {
-            articles.itemSnapshotList.items
-        } else {
-            filteredArticlesState.articles
-        }
+    val visibleArticles = remember(allArticles, filteredArticlesState.articles, isAllSelected) {
+        if (isAllSelected) allArticles else filteredArticlesState.articles
     }
 
     // Scroll-direction tracking: positive = scrolling down, negative = scrolling up
@@ -223,10 +255,7 @@ fun ArticleScreen(
                     items(categories) { category ->
                         FilterChip(
                             selected = selectedCategory == category,
-                            onClick = {
-                                selectedCategory = category
-                                viewModel.selectCategory(category)
-                            },
+                            onClick = { onCategorySelected(category) },
                             label = {
                                 Text(
                                     category,
@@ -273,9 +302,9 @@ fun ArticleScreen(
             }
 
             if (isAllSelected) {
-                articles.apply {
+                pagingLoadState?.apply {
                     when {
-                        loadState.refresh is LoadState.Loading -> {
+                        refresh is LoadState.Loading -> {
                             item {
                                 Box(modifier = Modifier.fillParentMaxSize()) {
                                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -283,7 +312,7 @@ fun ArticleScreen(
                             }
                         }
 
-                        loadState.append is LoadState.Loading -> {
+                        append is LoadState.Loading -> {
                             item {
                                 Box(modifier = Modifier.fillMaxWidth()) {
                                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -291,15 +320,15 @@ fun ArticleScreen(
                             }
                         }
 
-                        loadState.refresh is LoadState.Error -> {
-                            val e = articles.loadState.refresh as LoadState.Error
+                        refresh is LoadState.Error -> {
+                            val e = refresh as LoadState.Error
                             item {
                                 Text(text = "Error: ${e.error.localizedMessage}")
                             }
                         }
 
-                        loadState.append is LoadState.Error -> {
-                            val e = articles.loadState.append as LoadState.Error
+                        append is LoadState.Error -> {
+                            val e = append as LoadState.Error
                             item {
                                 Text(text = "Error: ${e.error.localizedMessage}")
                             }
@@ -343,7 +372,7 @@ fun ArticleScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Button(
-                                onClick = { viewModel.loadMoreFilteredArticles() },
+                                onClick = onLoadMoreFilteredArticles,
                                 enabled = !filteredArticlesState.isLoading
                             ) {
                                 if (filteredArticlesState.isLoading) {
@@ -364,170 +393,193 @@ fun ArticleScreen(
 }
 
 @Composable
-fun ArticleCard(article: ArticleDto, onCLick: (String) -> Unit = {}, sharedTransitionScope: SharedTransitionScope, animatedContentScope: AnimatedContentScope) {
-    with(sharedTransitionScope) {
-        val authorName = listOfNotNull(article.createdBy?.firstName, article.createdBy?.lastName)
-            .joinToString(" ")
-            .ifBlank { "Encye Desk" }
-        val plainDescription = article.description.toPlainText()
-        val categoryName = article.autoCategory?.primary?.name?.uppercase()
-        Card(
+fun ArticleCard(
+    article: ArticleDto,
+    onCLick: (String) -> Unit = {},
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedContentScope: AnimatedContentScope? = null
+) {
+    val authorName = listOfNotNull(article.createdBy?.firstName, article.createdBy?.lastName)
+        .joinToString(" ")
+        .ifBlank { "Encye Desk" }
+    val plainDescription = article.description.toPlainText()
+    val categoryName = article.autoCategory?.primary?.name?.uppercase()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable { onCLick(article.id) },
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .clickable { onCLick(article.id) },
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    .size(width = 110.dp, height = 128.dp)
+                    .clip(RoundedCornerShape(18.dp))
             ) {
+                AsyncImage(
+                    model = article.image?.url,
+                    contentDescription = article.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .articleSharedElement(
+                            key = "image-${article.id}",
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedContentScope = animatedContentScope
+                        )
+                )
+
                 Box(
                     modifier = Modifier
-                        .size(width = 110.dp, height = 128.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                ) {
-                    AsyncImage(
-                        model = article.image?.url,
-                        contentDescription = article.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .sharedElement(
-                                sharedTransitionScope.rememberSharedContentState(key = "image-${article.id}"),
-                                animatedContentScope
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.28f)
+                                ),
+                                startY = 32f
                             )
-                    )
+                        )
+                )
 
-                    Box(
+                if (categoryName != null) {
+                    Surface(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.28f)
-                                    ),
-                                    startY = 32f
-                                )
-                            )
-                    )
-
-                    if (categoryName != null) {
-                        Surface(
+                            .padding(10.dp)
+                            .align(Alignment.BottomStart),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)
+                    ) {
+                        Text(
+                            text = categoryName,
                             modifier = Modifier
-                                .padding(10.dp)
-                                .align(Alignment.BottomStart),
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f)
-                        ) {
-                            Text(
-                                text = categoryName,
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.6.sp,
-                                color = Color.White
-                            )
-                        }
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .defaultMinSize(minHeight = 128.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = formatArticleDate(article.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(
+                        onClick = { },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.BookmarkBorder,
+                            contentDescription = "Save",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 128.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Text(
+                    modifier = Modifier.articleSharedElement(
+                        key = "title-${article.id}",
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedContentScope = animatedContentScope
+                    ),
+                    text = article.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 22.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = if (plainDescription.isBlank()) AnnotatedString.fromHtml(article.description) else AnnotatedString(plainDescription),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
+                    AsyncImage(
+                        model = article.createdBy?.profilePicture,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = formatArticleDate(article.createdAt),
+                            text = authorName,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = categoryName ?: "Featured",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        IconButton(
-                            onClick = { },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.BookmarkBorder,
-                                contentDescription = "Save",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    Text(
-                        modifier = Modifier.sharedElement(
-                            sharedTransitionScope.rememberSharedContentState(key = "title-${article.id}"),
-                            animatedContentScope
-                        ),
-                        text = article.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 22.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = if (plainDescription.isBlank()) AnnotatedString.fromHtml(article.description) else AnnotatedString(plainDescription),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 18.sp
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = article.createdBy?.profilePicture,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentScale = ContentScale.Crop
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = authorName,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = categoryName ?: "Featured",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun Modifier.articleSharedElement(
+    key: String,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedContentScope: AnimatedContentScope?
+): Modifier {
+    if (sharedTransitionScope == null || animatedContentScope == null) {
+        return this
+    }
+
+    with(sharedTransitionScope) {
+        return this@articleSharedElement.sharedElement(
+            sharedTransitionScope.rememberSharedContentState(key = key),
+            animatedContentScope
+        )
     }
 }
 
@@ -547,12 +599,58 @@ private fun formatArticleDate(raw: String): String {
 @Preview
 @Composable
 fun ArticleScreenPreview() {
-    SharedTransitionLayout() {
-        ArticleScreen(
-            animatedContentScope = LocalNavAnimatedContentScope.current,
-            sharedTransitionScope = this@SharedTransitionLayout,
-            onNavigateToArticleDetail = { },
-            onCreateArticle = { },
+    EncyeTheme {
+        ArticleScreenContent(
+            allArticles = previewArticles,
+            filteredArticlesState = FilteredArticlesUiState(),
+            selectedCategory = "All",
+            onCategorySelected = {},
+            onLoadMoreFilteredArticles = {},
+            onNavigateToArticleDetail = {},
+            onCreateArticle = {}
         )
     }
 }
+
+private val previewArticles = listOf(
+    ArticleDto(
+        _id = "preview-1",
+        id = "preview-1",
+        title = "How community-led climate projects are scaling across cities",
+        description = "<p>Local teams are combining policy, finance, and field data to turn pilots into durable public infrastructure.</p>",
+        image = ImageDto(
+            id = "image-1",
+            url = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
+        ),
+        autoCategory = AutoCategoryDto(
+            primary = CategoryDto(name = "Environment", slug = "environment")
+        ),
+        createdBy = UserDto(
+            id = "user-1",
+            firstName = "Asha",
+            lastName = "Menon",
+            profilePicture = "https://images.unsplash.com/photo-1494790108377-be9c29b29330"
+        ),
+        createdAt = "2026-03-11T09:15:00Z"
+    ),
+    ArticleDto(
+        _id = "preview-2",
+        id = "preview-2",
+        title = "Why applied AI teams are moving evaluation earlier in the product cycle",
+        description = "<p>Teams are treating evaluation as a design constraint, not a late-stage safety net.</p>",
+        image = ImageDto(
+            id = "image-2",
+            url = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3"
+        ),
+        autoCategory = AutoCategoryDto(
+            primary = CategoryDto(name = "Technology", slug = "technology")
+        ),
+        createdBy = UserDto(
+            id = "user-2",
+            firstName = "Rohan",
+            lastName = "Das",
+            profilePicture = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e"
+        ),
+        createdAt = "2026-03-10T18:40:00Z"
+    )
+)

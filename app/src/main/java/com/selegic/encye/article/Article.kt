@@ -64,6 +64,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
@@ -76,6 +77,7 @@ import androidx.paging.CombinedLoadStates
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil3.compose.AsyncImage
+import com.selegic.encye.R
 import com.selegic.encye.data.remote.dto.AutoCategoryDto
 import com.selegic.encye.data.remote.dto.ArticleDto
 import com.selegic.encye.data.remote.dto.CategoryDto
@@ -196,7 +198,7 @@ private fun ArticleScreenContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Create article"
+                                contentDescription = stringResource(R.string.create_article)
                             )
                         }
                         IconButton(
@@ -210,33 +212,33 @@ private fun ArticleScreenContent(
                         }
                     }
                 }
-                AnimatedVisibility(
-                    visible = isHeaderVisible,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Search news, topics, or authors",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    }
-                }
+//                AnimatedVisibility(
+//                    visible = isHeaderVisible,
+//                    enter = expandVertically() + fadeIn(),
+//                    exit = shrinkVertically() + fadeOut()
+//                ) {
+//                    Column {
+//                        Spacer(modifier = Modifier.height(10.dp))
+//                        Surface(
+//                            modifier = Modifier.fillMaxWidth(),
+//                            shape = RoundedCornerShape(14.dp),
+//                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+//                        ) {
+//                            Row(
+//                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+//                                verticalAlignment = Alignment.CenterVertically
+//                            ) {
+//                                Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+//                                Spacer(modifier = Modifier.width(8.dp))
+//                                Text(
+//                                    text = "Search news, topics, or authors",
+//                                    style = MaterialTheme.typography.bodySmall,
+//                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+//                                )
+//                            }
+//                        }
+//                    }
+//                }
             }
         },
     ) { paddingValues ->

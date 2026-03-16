@@ -1,7 +1,6 @@
 package com.selegic.encye.onboarding
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -50,36 +49,35 @@ fun OnboardingScreen(
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                val email = account?.email
-                if (email != null) {
-                    // Use the mobile-auth endpoint via ViewModel
-                    viewModel.onGoogleSignInSuccess(
-                        email = email,
-                        firstName = account.givenName,
-                        lastName = account.familyName,
-                        profilePicture = account.photoUrl?.toString()
-                    )
-                } else {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Authentication failed: No email found")
-                    }
-                }
-            } catch (e: ApiException) {
-                val errorMessage = "Google sign in failed: ${e.statusCode}"
-                Log.e("GoogleSignIn", errorMessage, e)
+        val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val email = account?.email
+            if (email != null) {
+                // Use the mobile-auth endpoint via ViewModel
+                viewModel.onGoogleSignInSuccess(
+                    email = email,
+                    firstName = account.givenName,
+                    lastName = account.familyName,
+                    profilePicture = account.photoUrl?.toString()
+                )
+            } else {
                 scope.launch {
-                    snackbarHostState.showSnackbar(errorMessage)
+                    snackbarHostState.showSnackbar("Authentication failed: No email found")
                 }
             }
-        } else {
-             Log.e("GoogleSignIn", "Result Code not OK: ${result.resultCode}")
-             scope.launch {
-                 snackbarHostState.showSnackbar("Sign in cancelled or failed.")
-             }
+        } catch (e: ApiException) {
+            val errorMessage = "Google sign in failed: status=${e.statusCode}, resultCode=${result.resultCode}"
+            Log.e("GoogleSignIn", errorMessage, e)
+            scope.launch {
+                snackbarHostState.showSnackbar(errorMessage)
+            }
+        } catch (e: Exception) {
+            val errorMessage = "Google sign in failed: unexpected error, resultCode=${result.resultCode}"
+            Log.e("GoogleSignIn", errorMessage, e)
+            scope.launch {
+                snackbarHostState.showSnackbar(errorMessage)
+            }
         }
     }
 

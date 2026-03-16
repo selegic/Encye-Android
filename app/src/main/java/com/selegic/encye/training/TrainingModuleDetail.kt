@@ -1,5 +1,6 @@
 package com.selegic.encye.training
 
+import android.util.Log
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +53,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+private const val TAG = "TrainingModuleDetail"
 private val ModuleDetailHtmlTagRegex = Regex("<[^>]*>")
 private val ModuleDetailHtmlWhitespaceRegex = Regex("\\s+")
 
@@ -131,6 +133,7 @@ fun TrainingModuleDetailScreen(
             )
         },
         bottomBar = {
+            Log.d(TAG, "TrainingModuleDetailScreen: quiz: $quiz")
             if (quiz != null) {
                 Surface(shadowElevation = 8.dp) {
                     Row(

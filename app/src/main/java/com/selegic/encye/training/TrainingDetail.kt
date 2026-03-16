@@ -44,6 +44,8 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -243,7 +245,7 @@ private fun TrainingDetailContent(
                     modifier = Modifier.weight(1f),
                     label = "Modules",
                     value = training.modules.size.toString(),
-                    icon = Icons.Outlined.MenuBook
+                    icon = Icons.AutoMirrored.Outlined.MenuBook
                 )
                 TrainingStatCard(
                     modifier = Modifier.weight(1f),
@@ -341,7 +343,7 @@ private fun TrainingModuleCard(
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        text = "${module.moduleNumber ?: index + 1}",
+                        text = "${module.moduleNumber ?: (index + 1)}",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -368,7 +370,7 @@ private fun TrainingModuleCard(
                 }
 
                 Icon(
-                    imageVector = Icons.Outlined.KeyboardArrowRight,
+                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -30,13 +30,11 @@ class TrainingDetailViewModel @Inject constructor(
     fun loadTraining(trainingId: String, forceRefresh: Boolean = false) {
         viewModelScope.launch {
             val currentState = _uiState.value
-            val cacheStale = trainingRepository.isTrainingCacheStale(TRAINING_CACHE_TTL_MILLIS)
 
             if (!forceRefresh &&
                 currentState.training != null &&
                 currentState.loadedTrainingId == trainingId &&
-                currentState.errorMessage == null &&
-                !cacheStale
+                currentState.errorMessage == null
             ) {
                 return@launch
             }
@@ -51,13 +49,9 @@ class TrainingDetailViewModel @Inject constructor(
                 )
             }
 
-            val shouldRefresh = forceRefresh || cacheStale || cachedTraining == null
-            if (!shouldRefresh) {
-                _uiState.update { it.copy(isLoading = false) }
-                return@launch
-            }
-
             runCatching {
+                // Always refresh training detail by ID because the list cache can contain
+                // partial module payloads that omit rich fields like quiz content.
                 trainingRepository.refreshTrainingById(trainingId)
             }.onSuccess { response ->
                 val latestCachedTraining = trainingRepository.getCachedTrainingById(trainingId)

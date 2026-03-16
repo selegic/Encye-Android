@@ -6,6 +6,6 @@ import retrofit2.http.GET
 
 interface CommunityApiService {
 
-    @GET("api/v1/community/org/all")
-    suspend fun getOrganizationCommunities(): ApiResponse<List<CommunityDto>>
+    @GET("api/v1/community/all")
+    suspend fun getAllCommunities(): ApiResponse<List<CommunityDto>>
 }

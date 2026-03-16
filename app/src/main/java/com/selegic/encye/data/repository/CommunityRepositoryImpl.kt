@@ -8,7 +8,7 @@ class CommunityRepositoryImpl @Inject constructor(
     private val communityApiService: CommunityApiService
 ) : CommunityRepository {
 
-    override suspend fun getOrganizationCommunities(): List<CommunityDto> {
-        return communityApiService.getOrganizationCommunities().data.orEmpty()
+    override suspend fun getAllCommunities(): List<CommunityDto> {
+        return communityApiService.getAllCommunities().data.orEmpty()
     }
 }

@@ -38,6 +38,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.selegic.encye.article.ArticleComposerRoute
 import com.selegic.encye.article.ArticleDetailScreen
 import com.selegic.encye.article.ArticleScreen
+import com.selegic.encye.community.CommunityRoute
 import com.selegic.encye.data.remote.dto.ArticleDto
 import com.selegic.encye.home.Home
 import com.selegic.encye.navigation.Navigator
@@ -147,7 +148,7 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                 )
                             }
                             entry<AppDestinations.Community> {
-                                Greeting(name = "Community")
+                                CommunityRoute()
                             }
                             entry<AppDestinations.ArticleDetail> {
                                 ArticleDetailScreen(

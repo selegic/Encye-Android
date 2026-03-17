@@ -62,7 +62,8 @@ fun CommunityRoute(
 
     CommunityScreen(
         uiState = uiState,
-        onRetry = viewModel::fetchCommunities
+        onRetry = viewModel::fetchCommunities,
+        onToggleMembership = viewModel::toggleCommunityMembership
     )
 }
 
@@ -70,7 +71,8 @@ fun CommunityRoute(
 @Composable
 fun CommunityScreen(
     uiState: CommunityUiState,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onToggleMembership: (CommunityDto) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -91,7 +93,7 @@ fun CommunityScreen(
                 }
             }
 
-            uiState.errorMessage != null -> {
+            uiState.errorMessage != null && uiState.communities.isEmpty() -> {
                 CommunityFeedbackState(
                     modifier = Modifier.padding(paddingValues),
                     title = "Couldn’t load communities",
@@ -144,6 +146,9 @@ fun CommunityScreen(
 
                         CommunityCard(
                             community = uiState.communities[page],
+                            currentUserId = uiState.currentUserId,
+                            isUpdatingMembership = uiState.communities[page].mongoId in uiState.updatingCommunityIds,
+                            onToggleMembership = onToggleMembership,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .wrapContentHeight()
@@ -187,6 +192,9 @@ fun CommunityScreen(
 @Composable
 private fun CommunityCard(
     community: CommunityDto,
+    currentUserId: String?,
+    isUpdatingMembership: Boolean,
+    onToggleMembership: (CommunityDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val coverImageUrl = community.coverImage?.url
@@ -196,6 +204,12 @@ private fun CommunityCard(
     }
     val description = community.about?.takeIf { it.isNotBlank() }
         ?: "No description available for this community yet."
+    val isMember = !currentUserId.isNullOrBlank() && community.member.contains(currentUserId)
+    val actionLabel = when {
+        community.isAdmin || community.isModerator -> "Manage"
+        isMember -> "Leave"
+        else -> "Join"
+    }
 
     Surface(
         modifier = modifier,
@@ -290,26 +304,32 @@ private fun CommunityCard(
                         }
 
                         FilledTonalButton(
-                            onClick = { },
+                            onClick = { onToggleMembership(community) },
+                            enabled = !isUpdatingMembership && !community.isAdmin && !community.isModerator,
                             shape = ButtonDefaults.largePressedShape,
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                                 horizontal = 10.dp,
                                 vertical = 0.dp
                             )
                         ) {
-//                            Icon(
-//                                imageVector = Icons.Default.Add,
-//                                contentDescription = null
-//                            )
-//                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (community.isAdmin || community.isModerator) {
-                                    "Manage"
-                                } else {
-                                    "Join"
-                                },
-                                style = MaterialTheme.typography.labelMedium
-                            )
+                            if (isUpdatingMembership) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                if (!isMember && !community.isAdmin && !community.isModerator) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = actionLabel,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
                         }
                     }
 
@@ -436,12 +456,13 @@ private fun CommunityFeedbackState(
 @Composable
 private fun CommunityScreenPreview() {
     EncyeTheme {
-        CommunityScreen(
-            uiState = CommunityUiState(
-                isLoading = false,
-                communities = previewCommunities
-            ),
-            onRetry = {}
+            CommunityScreen(
+                uiState = CommunityUiState(
+                    isLoading = false,
+                    communities = previewCommunities
+                ),
+            onRetry = {},
+            onToggleMembership = {}
         )
     }
 }
@@ -452,7 +473,8 @@ private fun CommunityScreenLoadingPreview() {
     EncyeTheme {
         CommunityScreen(
             uiState = CommunityUiState(isLoading = true),
-            onRetry = {}
+            onRetry = {},
+            onToggleMembership = {}
         )
     }
 }
@@ -466,7 +488,8 @@ private fun CommunityScreenErrorPreview() {
                 isLoading = false,
                 errorMessage = "Network request failed."
             ),
-            onRetry = {}
+            onRetry = {},
+            onToggleMembership = {}
         )
     }
 }

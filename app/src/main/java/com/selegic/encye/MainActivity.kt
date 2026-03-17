@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import com.selegic.encye.util.SessionManager
 import com.selegic.encye.video.VideoScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -105,6 +107,7 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
         }
         true -> {
             // Main Application Flow
+            val coroutineScope = rememberCoroutineScope()
             val navigationState = rememberNavigationState(
                 startRoute = AppDestinations.Home,
                 topLevelRoutes = AppDestinations.entries().toSet()
@@ -122,6 +125,14 @@ fun EncyeApp(sessionManager: SessionManager? = null) {
                                 Home(
                                     onProfileClick = { userId ->
                                         navigator.navigate(AppDestinations.UserProfile(userId))
+                                    },
+                                    onLogoutClick = {
+                                        coroutineScope.launch {
+                                            if (sessionManager != null) {
+                                                sessionManager.clearAuthToken()
+                                            }
+                                            isLoggedIn = false
+                                        }
                                     }
                                 )
                             }

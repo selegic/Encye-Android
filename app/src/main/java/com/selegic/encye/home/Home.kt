@@ -27,12 +27,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -80,7 +82,8 @@ import com.selegic.encye.util.copyUriToCacheFile
 
 @Composable
 fun Home(
-    onProfileClick: (String?) -> Unit
+    onProfileClick: (String?) -> Unit,
+    onLogoutClick: () -> Unit
 ) {
     val homeViewModel: HomeViewModel = hiltViewModel()
     val posts = homeViewModel.posts.collectAsLazyPagingItems()
@@ -101,6 +104,7 @@ fun Home(
         onDeletePost = homeViewModel::deletePost,
         onResetComposer = homeViewModel::resetComposer,
         onClearComposerFeedback = homeViewModel::clearComposerFeedback,
+        onLogoutClick = onLogoutClick,
         onProfileClick = { onProfileClick(null) },
         onPostAuthorClick = onProfileClick
     )
@@ -122,6 +126,7 @@ fun HomeScreen(
     onDeletePost: (String) -> Unit,
     onResetComposer: () -> Unit,
     onClearComposerFeedback: () -> Unit,
+    onLogoutClick: () -> Unit,
     onProfileClick: () -> Unit,
     onPostAuthorClick: (String) -> Unit,
 ) {
@@ -129,6 +134,7 @@ fun HomeScreen(
     var selectedPost by remember { mutableStateOf<PostDto?>(null) }
     var showComposerSheet by remember { mutableStateOf(false) }
     var postPendingDelete by remember { mutableStateOf<PostDto?>(null) }
+    var showTopBarMenu by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val selectedUris = remember { mutableStateListOf<Uri>() }
@@ -178,10 +184,22 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Home") },
                 actions = {
-                    IconButton(onClick = onProfileClick) {
+                    IconButton(onClick = { showTopBarMenu = true }) {
                         Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = "Profile"
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More options"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showTopBarMenu,
+                        onDismissRequest = { showTopBarMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Log out") },
+                            onClick = {
+                                showTopBarMenu = false
+                                onLogoutClick()
+                            }
                         )
                     }
                 }

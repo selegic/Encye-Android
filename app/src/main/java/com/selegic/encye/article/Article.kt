@@ -521,14 +521,14 @@ fun ArticleCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Text(
-                    text = if (plainDescription.isBlank()) AnnotatedString.fromHtml(article.description) else AnnotatedString(plainDescription),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 18.sp
-                )
+//                Text(
+//                    text = if (plainDescription.isBlank()) AnnotatedString.fromHtml(article.description) else AnnotatedString(plainDescription),
+//                    style = MaterialTheme.typography.bodySmall,
+//                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                    maxLines = 2,
+//                    overflow = TextOverflow.Ellipsis,
+//                    lineHeight = 18.sp
+//                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

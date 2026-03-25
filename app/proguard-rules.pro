@@ -1,21 +1,21 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Project-specific ProGuard rules.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep WebView JavaScript bridge methods callable by name from JS.
+-keepclassmembers class com.selegic.encye.article.EditorBridge {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep route and DTO serializers used by Navigation 3 and kotlinx.serialization.
+-keep class com.selegic.encye.AppDestinations { *; }
+-keep class com.selegic.encye.AppDestinations$* { *; }
+-keep class com.selegic.encye.data.remote.dto.** { *; }
+-keepclassmembers class com.selegic.encye.data.remote.dto.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve serializer metadata and runtime-visible annotations used by Retrofit
+# and kotlinx.serialization generated adapters.
+-keepattributes RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations,AnnotationDefault,Signature,InnerClasses,EnclosingMethod
+
+# Keep source and line information for useful release stack traces.
+-keepattributes SourceFile,LineNumberTable

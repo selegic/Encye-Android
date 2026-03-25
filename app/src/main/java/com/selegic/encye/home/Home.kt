@@ -67,6 +67,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.paging.CombinedLoadStates
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil3.compose.AsyncImage
@@ -209,7 +212,7 @@ fun HomeScreen(
         PullToRefreshBox(
             modifier = Modifier.padding(paddingValues),
             onRefresh = onRefresh,
-            isRefreshing = false
+            isRefreshing = posts.loadState.refresh is LoadState.Loading
         ) {
             LazyColumn(
                 modifier = Modifier

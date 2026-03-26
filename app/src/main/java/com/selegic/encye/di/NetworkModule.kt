@@ -7,6 +7,7 @@ import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.CategoryApiService
 import com.selegic.encye.data.remote.CommentApiService
 import com.selegic.encye.data.remote.CommunityApiService
+import com.selegic.encye.data.remote.EnrollProgressApiService
 import com.selegic.encye.data.remote.ImageApiService
 import com.selegic.encye.data.remote.LikeApiService
 import com.selegic.encye.data.remote.PostApiService
@@ -21,6 +22,8 @@ import com.selegic.encye.data.repository.CommentRepository
 import com.selegic.encye.data.repository.CommentRepositoryImpl
 import com.selegic.encye.data.repository.CommunityRepository
 import com.selegic.encye.data.repository.CommunityRepositoryImpl
+import com.selegic.encye.data.repository.EnrollProgressRepository
+import com.selegic.encye.data.repository.EnrollProgressRepositoryImpl
 import com.selegic.encye.data.repository.ImageRepository
 import com.selegic.encye.data.repository.ImageRepositoryImpl
 import com.selegic.encye.data.repository.LikeRepository
@@ -166,6 +169,20 @@ object NetworkModule {
     @Singleton
     fun provideCommunityRepository(communityApiService: CommunityApiService): CommunityRepository {
         return CommunityRepositoryImpl(communityApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideEnrollProgressApiService(retrofit: Retrofit): EnrollProgressApiService {
+        return retrofit.create(EnrollProgressApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideEnrollProgressRepository(
+        enrollProgressApiService: EnrollProgressApiService
+    ): EnrollProgressRepository {
+        return EnrollProgressRepositoryImpl(enrollProgressApiService)
     }
 
     @Provides

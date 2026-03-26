@@ -1,0 +1,280 @@
+paths:
+
+  /api/v1/enroll-progress/enroll:
+    post:
+      tags:
+        - Enroll Progress
+      summary: Enroll the authenticated user in a training
+      description: Creates a user enrollment record and initializes module progress for the selected training.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollUserRequest"
+      responses:
+        "200":
+          description: User enrolled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollUserResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          description: Enrollment failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollProgressError"
+
+  /api/v1/enroll-progress/enrollments:
+    get:
+      tags:
+        - Enroll Progress
+      summary: Get enrollments for the authenticated user
+      description: Returns the authenticated user's training progress records, including populated training details.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User enrollments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgressListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          description: Failed to fetch enrollments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollProgressError"
+
+  /api/v1/enroll-progress/allenrollments:
+    get:
+      tags:
+        - Enroll Progress
+      summary: Get all enrollments
+      description: Returns all user training progress records across the system.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All enrollments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgressListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          description: Failed to fetch enrollments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollProgressError"
+
+  /api/v1/enroll-progress/updateProgress:
+    patch:
+      tags:
+        - Enroll Progress
+      summary: Update module progress for the authenticated user
+      description: Updates a single module's status for an enrolled training and returns the updated training progress.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgressRequest"
+      responses:
+        "200":
+          description: Progress updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProgressResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          description: Progress update failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollProgressError"
+
+components:
+
+  schemas:
+
+    EnrollUserRequest:
+      type: object
+      required:
+        - trainingId
+      properties:
+        trainingId:
+          type: string
+          description: Training ID to enroll in
+          example: "67d1f34c8d2c9a0012345678"
+
+    UpdateProgressRequest:
+      type: object
+      required:
+        - trainingId
+        - moduleId
+        - moduleStatus
+      properties:
+        trainingId:
+          type: string
+          description: Training ID for the progress record
+          example: "67d1f34c8d2c9a0012345678"
+        moduleId:
+          type: string
+          description: Module ID within the training
+          example: "67d1f3ff8d2c9a0012345679"
+        moduleStatus:
+          type: string
+          description: New status for the module
+          enum:
+            - Pending
+            - InProgress
+            - Completed
+          example: Completed
+
+    UserEnrollment:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "67d204fe8d2c9a0012345680"
+        userId:
+          type: string
+          example: "67d0aa118d2c9a0012345670"
+        trainingId:
+          type: string
+          example: "67d1f34c8d2c9a0012345678"
+        enrollmentDate:
+          type: string
+          format: date-time
+          example: "2026-03-25T10:15:30.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T10:15:30.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T10:15:30.000Z"
+
+    ModuleProgress:
+      type: object
+      properties:
+        module:
+          type: string
+          description: Module ID
+          example: "67d1f3ff8d2c9a0012345679"
+        moduleStatus:
+          type: string
+          enum:
+            - Pending
+            - InProgress
+            - Completed
+          example: InProgress
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-03-25T11:05:00.000Z"
+
+    UserProgress:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "67d205d18d2c9a0012345681"
+        userId:
+          type: string
+          example: "67d0aa118d2c9a0012345670"
+        trainingId:
+          oneOf:
+            - type: string
+              example: "67d1f34c8d2c9a0012345678"
+            - $ref: "#/components/schemas/Training"
+          description: Training ID or populated training object depending on endpoint
+        moduleProgress:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleProgress"
+        trainingStatus:
+          type: string
+          enum:
+            - Pending
+            - InProgress
+            - Completed
+          example: InProgress
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-03-25T11:05:00.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T10:15:30.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-03-25T11:05:00.000Z"
+
+    EnrollUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Enrolled successfully
+        data:
+          $ref: "#/components/schemas/UserEnrollment"
+
+    UserProgressResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Progress updated successfully
+        data:
+          $ref: "#/components/schemas/UserProgress"
+
+    UserProgressListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: List of all enrollments
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProgress"
+
+    EnrollProgressError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        msg:
+          type: string
+          example: Fill the required fields

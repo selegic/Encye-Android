@@ -32,3 +32,5 @@
 /.idea/vcs.xml
 .idea/.name
 /.codex_tmp
+/build_log.txt
+/.idea/assetWizardSettings.xml

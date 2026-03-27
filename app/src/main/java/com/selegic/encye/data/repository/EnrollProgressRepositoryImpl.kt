@@ -7,9 +7,11 @@ import com.selegic.encye.data.remote.dto.EnrollUserRequest
 import com.selegic.encye.data.remote.dto.UpdateProgressRequest
 import com.selegic.encye.data.remote.dto.UserEnrollmentDto
 import com.selegic.encye.data.remote.dto.UserProgressDto
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,7 +26,7 @@ class EnrollProgressRepositoryImpl @Inject constructor(
             EnrollUserRequest(trainingId = trainingId)
         ).also { response ->
             if (response.success) {
-                runCatching { refreshAllEnrollments() }
+                coroutineScope { launch { runCatching { refreshAllEnrollments() } } }
             }
         }
     }
@@ -33,18 +35,13 @@ class EnrollProgressRepositoryImpl @Inject constructor(
         return enrollProgressApiService.getEnrollments()
     }
 
-    override fun getAllEnrollments(): Flow<List<UserProgressDto>> {
-        return channelFlow {
-            launch {
-                try {
-                    refreshAllEnrollments()
-                }catch (t: Throwable){
-                    t.printStackTrace()
-                }
-            }
-            getAllEnrollments().collect {
-                send(it)
-            }
+    override fun getAllEnrollments(): Flow<List<UserProgressDto>> = channelFlow {
+        launch {
+            runCatching { refreshAllEnrollments() }
+                .onFailure { it.printStackTrace() }
+        }
+        enrollmentProgressCacheStore.observeAllEnrollments().collect {
+            send(it)
         }
     }
 

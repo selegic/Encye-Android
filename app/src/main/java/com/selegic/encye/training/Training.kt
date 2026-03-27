@@ -44,8 +44,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,8 +68,8 @@ import com.selegic.encye.data.remote.dto.TrainingDto
 import com.selegic.encye.data.remote.dto.TrainingModuleDto
 import com.selegic.encye.data.remote.dto.UserDto
 import com.selegic.encye.ui.theme.EncyeTheme
+import kotlinx.coroutines.launch
 import kotlin.math.abs
-import kotlin.math.min
 
 private val HtmlTagRegex = Regex("<[^>]*>")
 private val HtmlWhitespaceRegex = Regex("\\s+")
@@ -102,10 +104,18 @@ fun TrainingScreen(
 ) {
     val viewModel: TrainingViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+
+    LaunchedEffect(Unit) {
+        viewModel.loadTrainings()
+    }
 
     TrainingScreen(
         uiState = uiState,
-        onRetry = viewModel::loadTrainings,
+        onRetry = {
+            scope.launch { viewModel.loadTrainings() }
+        },
         onNavigateToTrainingDetail = onNavigateToTrainingDetail
     )
 }
@@ -157,6 +167,7 @@ fun TrainingScreen(
             else -> {
                 TrainingContent(
                     trainings = uiState.trainings,
+                    enrolledTrainings = uiState.enrollments,
                     errorMessage = uiState.errorMessage,
                     onRetry = onRetry,
                     onNavigateToTrainingDetail = onNavigateToTrainingDetail,
@@ -173,11 +184,12 @@ private fun TrainingContent(
     errorMessage: String?,
     onRetry: () -> Unit,
     onNavigateToTrainingDetail: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enrolledTrainings: List<TrainingDto>
 ) {
     val allCourses = remember(trainings) { trainings.map(::toTrainingCourseUi) }
     val activeCourses = remember(allCourses) {
-        allCourses.filter { it.status == TrainingCourseStatus.IN_PROGRESS }
+        enrolledTrainings.map(::toTrainingCourseUi)
     }
     val completedCourses = remember(allCourses) {
         allCourses.filter { it.status == TrainingCourseStatus.COMPLETED }
@@ -223,7 +235,7 @@ private fun TrainingContent(
             item {
                 TrainingSection(
                     title = "Active Training",
-                    courses = activeCourses.ifEmpty { allCourses.take(2) },
+                    courses = activeCourses,
                     onCourseClick = { onNavigateToTrainingDetail(it.training.id) }
                 )
             }
@@ -231,7 +243,7 @@ private fun TrainingContent(
             item {
                 TrainingSection(
                     title = "Completed Training",
-                    courses = completedCourses.ifEmpty { allCourses.takeLast(2) },
+                    courses = completedCourses,
                     onCourseClick = { onNavigateToTrainingDetail(it.training.id) }
                 )
             }

@@ -45,7 +45,6 @@ class TrainingDetailViewModel @Inject constructor(
     suspend fun fetchEnrollments(trainingId: String) {
         enrollProgressRepository.getAllEnrollments().collect { enrollments ->
             _uiState.update {
-                Log.d(TAG, "fetchEnrollments: ${enrollments.map { it.trainingId }}, $trainingId")
                 it.copy(
                     isEnrolled = enrollments.any {
                         it.matchesTrainingId(trainingId)

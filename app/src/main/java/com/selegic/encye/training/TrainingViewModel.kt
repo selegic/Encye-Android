@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.selegic.encye.data.remote.dto.TrainingDto
 import com.selegic.encye.data.remote.dto.UserEnrollmentDto
-import com.selegic.encye.data.remote.dto.UserProgressDto
 import com.selegic.encye.data.repository.EnrollProgressRepository
 import com.selegic.encye.data.repository.TrainingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +18,7 @@ import javax.inject.Inject
 data class TrainingUiState(
     val isLoading: Boolean = true,
     val trainings: List<TrainingDto> = emptyList(),
-    val enrollments: List<UserProgressDto> = emptyList(),
+    val enrollments: List<TrainingDto> = emptyList(),
     val isEnrollmentLoading: Boolean = false,
     val isProgressUpdateLoading: Boolean = false,
     val latestEnrollment: UserEnrollmentDto? = null,
@@ -34,48 +34,25 @@ class TrainingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TrainingUiState())
     val uiState: StateFlow<TrainingUiState> = _uiState.asStateFlow()
 
-    init {
-        loadTrainingsInternal(forceRefresh = false)
-    }
 
-    fun loadTrainings() {
+    suspend fun loadTrainings() {
         loadTrainingsInternal(forceRefresh = true)
     }
-
-    fun getEnrollments() {
-        viewModelScope.launch {
+    suspend fun fetchEnrolledCourses()  = coroutineScope {
+        enrollProgressRepository.getAllEnrollments().collect { enrollments ->
             _uiState.update {
                 it.copy(
-                    isEnrollmentLoading = true,
-                    errorMessage = null
-                )
-            }
-
-            runCatching {
-                enrollProgressRepository.getEnrollments()
-            }.onSuccess { response ->
-                _uiState.update {
-                    it.copy(
-                        isEnrollmentLoading = false,
-                        enrollments = response.data.orEmpty(),
-                        errorMessage = if (response.success) null else response.msg.ifBlank {
-                            "Unable to load enrollments"
+                    enrollments = it.trainings.filter { allTrainings ->
+                        enrollments.any {
+                            it.trainingId.id == allTrainings.id
                         }
-                    )
-                }
-            }.onFailure { error ->
-                _uiState.update {
-                    it.copy(
-                        isEnrollmentLoading = false,
-                        errorMessage = error.message ?: "Unable to load enrollments"
-                    )
-                }
+                    }
+                )
             }
         }
     }
 
-    private fun loadTrainingsInternal(forceRefresh: Boolean) {
-        viewModelScope.launch {
+    private suspend fun loadTrainingsInternal(forceRefresh: Boolean) {
             val cachedTrainings = trainingRepository.getCachedTrainings()
             _uiState.update {
                 it.copy(
@@ -84,6 +61,7 @@ class TrainingViewModel @Inject constructor(
                     errorMessage = null
                 )
             }
+            fetchEnrolledCourses()
 
             runCatching {
                 trainingRepository.refreshTrainingsIfStale(
@@ -113,6 +91,5 @@ class TrainingViewModel @Inject constructor(
                     )
                 }
             }
-        }
     }
 }

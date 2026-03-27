@@ -3,6 +3,7 @@ package com.selegic.encye.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.selegic.encye.BuildConfig
 import com.selegic.encye.data.local.AppDatabase
+import com.selegic.encye.data.local.EnrollmentProgressCacheStore
 import com.selegic.encye.data.remote.ArticleApiService
 import com.selegic.encye.data.remote.CategoryApiService
 import com.selegic.encye.data.remote.CommentApiService
@@ -180,9 +181,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideEnrollProgressRepository(
-        enrollProgressApiService: EnrollProgressApiService
+        enrollProgressApiService: EnrollProgressApiService,
+        enrollmentProgressCacheStore: EnrollmentProgressCacheStore
     ): EnrollProgressRepository {
-        return EnrollProgressRepositoryImpl(enrollProgressApiService)
+        return EnrollProgressRepositoryImpl(enrollProgressApiService, enrollmentProgressCacheStore)
     }
 
     @Provides

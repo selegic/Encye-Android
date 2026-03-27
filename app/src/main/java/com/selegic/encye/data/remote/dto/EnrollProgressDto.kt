@@ -39,10 +39,16 @@ data class UserProgressDto(
     @SerialName("_id")
     val id: String,
     val userId: String,
-    val trainingId: JsonElement? = null,
+    val trainingId: TrainingObject = TrainingObject(),
     val moduleProgress: List<ModuleProgressDto> = emptyList(),
     val trainingStatus: String,
     val completedAt: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null
+)
+
+@Serializable
+data class TrainingObject(
+    @SerialName("_id")
+    val id: String = ""
 )
